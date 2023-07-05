@@ -38,7 +38,7 @@
 	  </section>
 	  <section>
 	    <h2>视频</h2>
-	    <video controls> <!-- 可以将src="目标媒体"直接放入video标签中 -->
+	    <video controls poster="images/video.jpg"> <!-- 可以将src="目标媒体"直接放入video标签中，video元素其他空值属性autoplay(自动播放) loop(循环播放) muted(静音)和有值属性preload(3个值)页面加载时设置缓冲视频-->
 		  <source src=".mp4" type="video/mp4"> <!-- 若未添加 type 属性，浏览器会尝试加载每一个文件 -->
           <source src=".webm" type="video/webm"> <!-- 不同的src属性值是为了适应多种浏览器 -->
           <p>Your browser doesn't support HTML5 video. Here is a <a href="">link to the video</a> instead.</p> 
