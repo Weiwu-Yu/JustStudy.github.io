@@ -4,6 +4,7 @@
     <meta charset="utf-8">
 	<meta name="author" content="weiwu">
 	<meta name="description" content="Dog relevant">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=2.0, user-scalable=yes">
     <title>dog</title>
 	<link href="favicon.ico" type="image/x-icon" rel="icon">
 	<link href="styles/style.css" rel="stylesheet">
@@ -33,7 +34,14 @@
 	</header>
     <main>	
 	  <section>
-	  	<h2>图像</h2>
+	  	<h2>图像</h2>	
+        <svg width="80%" height="35%" style="display:block; margin:10px auto">
+          <rect width="100%" height="100%" fill="FloralWhite" />
+          <circle cx="50%" cy="50%" r="50" fill="Coral" stroke="black" />
+          <polygon points="10,0 0,10 20,10" fill="green" />
+		  <polygon points="0,50 15,12 15,28 50,0" fill="LightSeaGreen" />
+          <text x="40%" y="55%" font-size="40" fill="white" stroke="black" stroke-width="2"> Hello </text>
+        </svg>
 	    <img src="images/dog1.png" title="点击图像可切换" alt="一直仰天张嘴的哈士奇，旁边的猫貌似打了它">
 	  </section>
 	  <section>
@@ -50,14 +58,18 @@
 		    &copy; copyright B站 | <a href="https://www.bilibili.com" target="_blank">www.bilibili.com</a>		  
           </figcaption>	  
 		</figure>
-		<audio controls> <!-- 音频没有宽高和poster特性,不能作为figure子元素 -->
+		<audio controls> <!-- 音频没有宽高和poster特性；不能作为figure子元素 -->
 		  <source src="images/video.mp3" type="audio/mp3">
 		</audio>
 	  </section>
 	  <aside id="resource">
 	    <figure>
 		  <figcaption><strong>柯基</strong></figcaption>
-		  <img src="images/keji.png" alt="柯基图像">
+		  <picture>
+            <source media="(max-width: 708px)" type="image/gif" srcset="images/keji.gif">
+            <source media="(min-width: 709px)" type="image/png" srcset="images/keji_220w.png, images/keji_275w.png 1.25x">
+		    <img src="images/keji_275w.png" alt="柯基图像">
+		  </picture>
 		</figure>		  
 		<figure>
 		  <figcaption id="hashiqi"><strong>哈士奇</strong></figcaption>
