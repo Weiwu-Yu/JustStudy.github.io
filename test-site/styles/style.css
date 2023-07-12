@@ -129,7 +129,13 @@ section img,video,audio{
   width: 80%;
 }
 
-video::cue{
+section img{
+  height: 250px;
+  object-fit: contain;
+  max-width: 100%;
+}
+
+section video::cue{
   font-size: 2rem;
   color: Crimson;
 }
