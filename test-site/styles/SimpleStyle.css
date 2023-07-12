@@ -1,0 +1,169 @@
+html {
+  font-size: 15px; /* 基础字号为 10 像素 */
+  font-family: "Dancing Script", serif;
+  margin:0;
+  padding:0;
+  background-image: url(../images/bg.gif);
+  background-repeat: repeat;
+  background-color: #0a0a0a;
+}
+
+body {
+  width: 90%;
+  min-width: 600px;
+  margin: 0 auto;
+  background-color: rgba(236,236,255,0.5); /* RGBA 颜色值是 RGB 颜色值的扩展，添加了一个 alpha 通道， 它规定了对象的不透明度。R/G/B:正整数（0~255）或 百分数（0.0% - 100.0%),A：透明度:取值0~1之间，不可为负值 */
+  padding: 0 20px 20px 20px; 
+  border: 5px solid black;
+}
+
+header {
+  margin-top: 10px;
+  padding: 1%;
+  display: flex;/* flex容器内的元素弹性布局，能最大限度填充可用空间 */
+  flex-flow: row wrap;/* raw表示默认值从左排序，wrap表示超过一行/列就自动换行/列 */
+  background: rgba(236,236,255,0.5);
+}
+
+header img {
+  display: block;
+  height: 80px;
+  padding-top: 20px;
+}
+
+h1 {
+  font-size: 60px;
+  text-align: center;
+  margin: 0;
+  padding: 20px;
+  color: #FF3399;
+  text-shadow: 3px 3px 1px black;
+  flex: 5;
+  text-transform: capitalize;
+}
+
+header button {
+  display: block;
+  margin-top: 20px;
+  margin-left: auto;
+  width:150px;
+  height:30px;
+  background-color: dodgerblue;
+  color: white;
+  font-weight: bold;
+  border-width: 20px 10px;
+  border-radius: 30px;
+  border:outset khaki;
+}
+header button:hover{
+  background-color:#333399;
+}
+
+header form{
+  margin-top: 20px;
+}
+form #sousuo{
+  width: 105px;
+}
+
+nav {
+  height: 40px;
+  flex: 100%;
+  display: flex;
+  background: rgba(236,236,255,0.5);
+}
+
+nav ul{
+  padding: 0;
+  margin-top: 0;
+  list-style-type: none;
+  flex: 1;
+  display: flex;
+}
+
+nav li {
+  display: inline-block;
+  height:3rem;
+  text-align: center;
+  flex: 1;
+}
+
+nav a, nav span{
+  display: inline-block;
+  font-size: 2rem;
+  height: 3rem;
+  line-height: 3rem;
+  text-transform: uppercase;
+  text-decoration: none;	
+  color: black;
+}
+nav a:hover{
+  color: Turquoise;
+  font-weight: bolder;
+}
+
+main p,li {
+  font-size: 20px;
+  line-height: 2;
+  letter-spacing: 1px;
+}
+
+h3#table{
+  text-align: center;
+  margin: 0;
+  padding: 0;
+}
+table {
+  font-family: "Yeseva One", serif;
+  border-collapse: collapse;
+  border: 2px solid rgb(200,200,200);
+  letter-spacing: 0.1px;
+  font-size: 0.1rem;
+}
+td, th {
+  border: 1px solid rgb(190,190,190);
+  padding: 10px 5px;
+}
+th {
+  background-color: DarkGray;
+}
+td {
+  text-align: center;
+}
+tr:nth-child(even) td {
+  background-color: White;
+}
+tr:nth-child(odd) td {
+  background-color: Gainsboro;
+}
+caption {
+  padding: 10px;
+}
+
+
+blockquote{
+  padding: 0 20px 10px 20px;
+  background: #eee;
+  border-radius: 10px;
+  position: relative;
+}
+blockquote cite{
+  position: absolute;
+  right: 10px;
+}
+blockquote div::before {
+  content: '\201C';
+  color: black;
+}
+blockquote div::after {
+  content: '\201D';
+  color: black;
+}
+
+footer {
+  margin-top: 10px;
+}
+footer #fenxiang{
+  float: right;
+}
+
