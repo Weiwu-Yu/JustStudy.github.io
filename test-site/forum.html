@@ -11,6 +11,7 @@
 	<link href="https://fonts.googleapis.com/css?family=Dancing+Script" rel="stylesheet">
 	<link href="https://fonts.googleapis.com/css?family=Yeseva+One" rel="stylesheet">
 	<link href="https://fonts.googleapis.com/css?family=Kaushan+Script" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
     <script src="scripts/forum.js" defer></script> 
   </head>
   <body>
@@ -35,17 +36,25 @@
     <main>	
 	  <article>
 	    <h2><a href="https://www.petquan.cn/gougouzixun/" target="_blank">萌犬资讯</a></h2>
-		<p><pre>  The Most Dog Friendly Community Online<br>Join and Discover the Best Things to do with your Dog</pre></p>
+		<pre>The Most Dog Friendly Community Online<br>Join and Discover the Best Things to do with your Dog</pre>
 	    <section>
-		  <h3 style="font-family:'Yeseva One', serif;" id="table">Dogs Table</h3>
+		  <h3 id="table">Table</h3>
+		  <div style="overflow-x: auto;">
 		  <table>
+		    <caption>Information on Several Common Dogs</caption>
 		    <colgroup>
-			  <col>
-			  <col style="background-color: yellow" span="2">
+			  <col span="4">
+			  <col style="background-color: DarkGray" span="2">
 	        </colgroup>
+			<thead>
 		    <tr>
-			  <td rowspan="2">&nbsp;</td> <th scope="col" rowspan="2">Siberian Husky(西伯利亚哈士奇)</th> <th scope="col" rowspan="2">Samoyed(萨摩耶)</th> <th scope="col" rowspan="2">Border collie(边境牧羊犬)</th> <th colspan="2">Corgi(柯基)</th> <tr><th>Welsh Corgi Pembroke (彭布罗克威尔士柯基)</th> <th>Welsh Corgi Cardigan(卡迪根威尔士柯基)</th></tr>
+			  <td rowspan="2">&nbsp;</td> <th scope="col" rowspan="2">Siberian Husky(西伯利亚哈士奇)</th> <th scope="col" rowspan="2">Samoyed(萨摩耶)</th> <th scope="col" rowspan="2">Border collie(边境牧羊犬)</th> <th scope="colgroup" colspan="2">Corgi(柯基)</th> 
 			</tr>
+			<tr>
+			  <th scope="col">Welsh Corgi Pembroke (彭布罗克威尔士柯基)</th> <th scope="col">Welsh Corgi Cardigan(卡迪根威尔士柯基)</th>
+			</tr>
+			</thead>
+			<tbody>
 			<tr>
               <th scope="row">propensity(习性)</th> <td>Playful &amp; active</td> <td>Friendly &amp; gentle</td> <td>Smart &amp; enthusiastic</td> <td colspan="2">Stubborn &amp; cute</td>
 			</tr>
@@ -55,21 +64,34 @@
 			<tr>
 			  <th scope="row">provenance(出处)</th> <td>America</td> <td>Northern Russia <br>and Siberia</td> <td colspan="3">Britain</td>
 			</tr>
+			</tbody>
+			<tfoot>
+			<tr>
+			  <td colspan="6">After long-term cultivation, people develop their talents and strengths in certain aspects to meet different requirements and purposes, including but not limited to the following specialized types:
+			    <table>
+				  <tr>
+				    <td>Meat eating</td><td>Hunting</td><td>Guarding</td><td>Reconnaissance</td><td>Herding sheep</td><td>Performing</td><td>Running</td><td>Guiding</td><td>Sledding</td><td>Experimentation</td><td>Appreciation</td>
+				  </tr>
+				</table>
+			  </td>
+			</tr>
+			</tfoot>
 	      </table>
+		  </div>
 	    </section>
 	  </article>
 	  <article>
 	    <h2><a href="https://discourse.mozilla.org/c/mdn/236" title="MDN Discourse forum Learning category" target="_blank">学习论坛</a></h2>
-	    <h3 style="font-family:'Comic Sans MS', serif;">The following are examples of blockquotes <code>&amp; </code>symbolic entityquotes:</h3><!-- serif、sans-serif、cursive、fantasy、monospace为5大字体家族 -->
-	    <blockquote cite="https://developer.mozilla.org/en-US/docs/Web/HTML/Element/blockquote" style="font-family: 'Yeseva One', sans-serif;"> 
-	      <p> <!-- 这里可以但不应该使用p元素，因为3类特殊块级元素：p、h1~h6、dt不能嵌套其它块级元素。但使用p元素可以在html中达到预期效果，是因为html宽松编码的原因自动分别为这里的开始标签、后面的结束标签生成这里的结束标签、后面的开始标签，即两对p空元素 -->
+	    <h3 style="font-family:'Ma Shan Zheng', cursive;">The following are examples of blockquotes <code>&amp; </code>symbolic entityquotes:</h3><!-- serif、sans-serif、cursive、fantasy、monospace为5大字体家族 -->
+	    <blockquote cite="https://developer.mozilla.org/en-US/docs/Web/HTML/Element/blockquote"> 
+	      <p></p><!-- 这里可以但不应该使用p元素，因为3类特殊块级元素：p、h1~h6、dt不能嵌套其它块级元素。但使用p元素可以在html中达到预期效果，是因为html宽松编码的原因自动分别为这里的开始标签、后面的结束标签生成这里的结束标签、后面的开始标签，即两对p空元素 -->
 		    <div>The <strong>HTML <code>&lt;blockquote&gt;</code> Element</strong> (or<em>HTML Block Quotation Element</em>) indicates that the enclosed text is an extended quotation.</div>
 	        <a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Element/blockquote" target="_blank"><cite>--MDN blockquote page</cite></a><!-- <cite> 元素是为了包含所引用资源的标题（如书名），浏览器、屏幕阅读器未充分利用cite属性，只是用于标记，要使用需自己写js文件或者其他-->	 
-		  </p>
-	      <p>
+		  <p></p>
+	      <p></p>
 		    <div>The <q>quote element</q> — <code>&lt;q&gt;</code> — is intended for short quotations that don't require paragraph breaks.</div>
 	        <a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Element/q" target="_blank"><cite>--MDN q page</cite></a>
-		  </p>
+		  <p></p>
         </blockquote>
 	    <div>
 	      <pre><a href="https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element/input" title="&lt;input&gt;元素" target="_blank"><code>&lt;input&gt;</code></a>详解  <input type="text" disabled="disabled"><input type="text"> <!-- 使用 disabled 属性来防止终端用户输入文本到输入框中，="disabled"布尔属性值可以省略 -->
