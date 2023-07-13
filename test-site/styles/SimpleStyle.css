@@ -108,27 +108,32 @@ main p,li {
   letter-spacing: 1px;
 }
 
-h3#table{
-  text-align: center;
-  margin: 0;
-  padding: 0;
+main section{
+  font-family: "Yeseva One", serif;	
 }
 table {
-  font-family: "Yeseva One", serif;
+  table-layout: auto;
   border-collapse: collapse;
-  border: 2px solid rgb(200,200,200);
+  border: 3px solid rgb(200,200,200);
   letter-spacing: 0.1px;
   font-size: 0.1rem;
+  width: 100%;
+}
+caption {
+  padding: 10px;
 }
 td, th {
   border: 1px solid rgb(190,190,190);
   padding: 10px 5px;
 }
-th {
-  background-color: DarkGray;
-}
 td {
   text-align: center;
+}
+thead tr:nth-child(1) th{
+  background-color: Gray;
+}
+tbody th {
+  background-color: Gray;
 }
 tr:nth-child(even) td {
   background-color: White;
@@ -136,12 +141,9 @@ tr:nth-child(even) td {
 tr:nth-child(odd) td {
   background-color: Gainsboro;
 }
-caption {
-  padding: 10px;
-}
-
 
 blockquote{
+  font-family: 'Yeseva One', sans-serif;
   padding: 0 20px 10px 20px;
   background: #eee;
   border-radius: 10px;
