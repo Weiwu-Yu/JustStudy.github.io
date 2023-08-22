@@ -108,6 +108,9 @@ main p,li {
   letter-spacing: 1px;
 }
 
+main h2 + pre {
+  font-size: 10px;
+}
 main section{
   font-family: "Yeseva One", serif;	
 }
