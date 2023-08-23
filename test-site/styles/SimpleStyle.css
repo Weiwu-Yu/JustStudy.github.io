@@ -120,7 +120,7 @@ table {
   border: 3px solid rgb(200,200,200);
   letter-spacing: 0.1px;
   font-size: 0.1rem;
-  width: 100%;
+  width: calc(100% - 5px);
 }
 caption {
   padding: 10px;
