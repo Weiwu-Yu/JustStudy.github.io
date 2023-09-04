@@ -3,7 +3,6 @@
 html{
   background-image: linear-gradient(rgba(0, 0, 255, 0.5), rgba(255, 255, 0, 0.5)), url(../images/bg.gif);
 }
-
 @media (max-width: 800px){
   html{
 	background-image: linear-gradient(rgba(255, 0, 0, 0.5), rgba(0, 0, 255, 0.5));
@@ -16,6 +15,8 @@ main h2 + pre {
 main section {
   font-family: "Yeseva One", serif;	
 }
+
+/* 处理表格 */
 table {
   table-layout: auto;
   border-collapse: collapse;
@@ -47,6 +48,7 @@ tr:nth-child(odd) td {
   background-color: Gainsboro;
 }
 
+/* 处理引用 */
 blockquote{
   font-family: 'Yeseva One', sans-serif;
   padding: 0 20px 10px 20px;
