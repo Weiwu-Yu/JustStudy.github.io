@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+	<meta name="description" content="login">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=2.0, user-scalable=yes">
+    <title>登录</title>
+	<style>
+	  body{
+	    background-image: url("images/login.png");
+		background-size: cover;
+		background-repeat: no-repeat;
+		background-position-x: center;
+	  }
+	  main{
+	    display: grid;
+        place-items: center;
+	    width: 80%;
+		height: 400px;
+		position: relative;
+		box-sizing: border-box;
+		margin: 50px auto;
+		padding: 1px;
+		border: 8px solid silver;
+        border-radius: 2px;
+        background-image: url("images/login.png");
+        background-size: 1300px;
+        background-position-x: center; 
+        background-position-y: -125px;
+        z-index: 1;
+	  }
+	  main::after{
+	    content: "";
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background: inherit;
+        left: 0;
+        top: 0;
+        filter: blur(5px);
+        z-index: 2;
+	  }
+	  .div{
+	    position: relative;
+		z-index: 3;
+		border: none;
+	  }
+	  img{
+	    height: 100px;
+	  }
+	  form{
+	    height: 200px;
+	  }
+	  fieldset{
+	    padding: 15px;
+		font-size: 20px;
+	  }
+      #click {
+	    display: inline-block;
+		margin-left: 50px;
+		text-decoration: none;	
+        width: 50%;
+		height: 25px;
+        border: thin solid darkgrey;
+		border-radius: 5px;
+        background-color: darkgrey;
+        color: white;
+		font-size: 1rem;
+		text-align: center;
+	  }
+	  fieldset:invalid ~ fieldset {      /* 在无效的字段集后隐藏该字段集 */
+        display: none;
+      }
+      main form:invalid a { 	  /* 在表单无效时，将按钮变暗并禁用它 */
+        opacity: 0.3;
+        pointer-events: none;
+      }
+	  .input:invalid{
+	    height: 20px;
+        background-color: ivory;
+        border: none;
+        outline: 2px solid red;
+        border-radius: 5px;
+	  }
+      .input:valid{
+	  	height: 20px;
+        background-color: Aquamarine;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+	  <img src="images/loginlogo.png" alt="logo" class="div">
+      <form>
+        <fieldset class="div">
+          <label>邮箱
+		    <input type="email" name="email" placeholder="请输入账号" class="input" required>
+		  </label>
+		</fieldset>
+        <fieldset class="div">
+          <label>密码
+		    <input type="password" maxlength="8" placeholder="请输入密码" class="input" required>
+		  </label>
+		</fieldset>
+	    <a href="index.html" target="_self" id="click" class="div">登录</a>  <!-- 也可以a里嵌套button:<a href="index.html"><button>登录</button></a> -->
+      </form>
+	  <div>
+		  <a href="register.html" target="_self" class="div">注册账号</a>
+		  <a href="restore.html" target="_self" class="div">重置密码</a>
+	  </div>
+	</main>
+  </body>
+</html>
