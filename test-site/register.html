@@ -124,7 +124,7 @@
 		var password1 = document.getElementById('password1').value;
         var password2 = document.getElementById('password2').value;	
         var passwordalert =	 document.querySelectorAll('.alert');	
-        var regex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[`~!@#$%^&*()-_+={}|:'\",.<>?]).{8,}$/;  
+        var regex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=~`{}[\]|:;"'<>,.?\/]).{8,}$/;  
         if (!regex.test(password1) || !regex.test(password2)) {
           for (var i = 0; i < passwordalert.length; i++) {  
             passwordalert[i].style.display = "block";  
