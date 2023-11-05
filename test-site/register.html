@@ -13,17 +13,16 @@
 	  }
 	  body {
 	    background: linear-gradient(LightCyan, Honeydew) center fixed no-repeat;
-	    display: flex;  
-            justify-content: center;  
-            align-items: center;  
-            height: 100vh;  
-            flex-direction: column;  
+		display: flex;  
+        justify-content: center;  
+        align-items: center;  
+        height: 100vh;  
+        flex-direction: column;  
 	  }
 	  .rg_layout {
 	    width: 80%;
         border: 8px solid #EEEEEE;
         background-color: white;
-        margin: auto;
 		box-shadow: 0 15px 25px rgba(0, 0, 0, 0.4);
 	    display: flex;  
         justify-content: space-between; 
@@ -57,7 +56,7 @@
         width: 70%;
         padding-left: 1.5rem;
       }
-	tr:hover{
+	  tr:hover{
 		font-weight: bold;
 	  }
 	  label {
@@ -105,6 +104,7 @@
 		font-size: 2rem;
 		text-align: center;
 	  }
+
 	</style>
     <script src="https://ajax.loli.net/ajax/libs/jquery/3.2.1/jquery.min.js"></script> 
 	<script>
@@ -123,28 +123,47 @@
 	
 		var password1 = document.getElementById('password1').value;
         var password2 = document.getElementById('password2').value;	
+		var passwordInputs = document.querySelectorAll('[id^="password"]');
         var passwordalert =	 document.querySelectorAll('.alert');	
         var regex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=~`{}[\]|:;"'<>,.?\/]).{8,}$/;  
-        if (!regex.test(password1) || !regex.test(password2)) {
-          for (var i = 0; i < passwordalert.length; i++) {  
-            passwordalert[i].style.display = "block";  
-          }		
-          event.preventDefault(); 
-        }else{
-		  document.getElementById("enroll").style.display = "block"; 
-	      document.querySelector('main').style.display = "none";
-		}  
-        })
+        if (regex.test(password1) && regex.test(password2)){
+	      if(password1 !== password2){
+            for (var i = 0; i < passwordalert.length; i++) {  
+              passwordalert[i].style.display = "none";  
+            }				
+			passwordInputs.forEach(function(input) {  
+			  input.value = "";  
+			});
+    
+
+          }else{  
+		    document.getElementById("enroll").style.display = "block"; 
+	        document.querySelector('main').style.display = "none";
+		  }
+		}else{
+		  var i=0;
+		  if (!regex.test(password1) && !regex.test(password2)){
+            passwordalert[0].style.display = "block";	
+            passwordalert[1].style.display = "block"; 			
+          }else if (!regex.test(password1) && regex.test(password2)){
+            passwordalert[0].style.display = "block"; 
+            passwordalert[1].style.display = "none";			
+          }else if (regex.test(password1) && !regex.test(password2)){
+            passwordalert[0].style.display = "none"; 
+            passwordalert[1].style.display = "block";			
+          }  
+		} 
+        });
 		
         document.querySelectorAll('input').forEach(function(input) {  
           input.addEventListener('focus', function() {  
-            var correspondingLabel = document.getElementById(this.getAttribute('for'));  
+            var correspondingLabel = document.getElementById(this.getAttribute('name'));  
             if (correspondingLabel) {  
               correspondingLabel.classList.add('focused');  
             }  
           });  
           input.addEventListener('blur', function() {  
-            var correspondingLabel = document.getElementById(this.getAttribute('for'));  
+            var correspondingLabel = document.getElementById(this.getAttribute('name'));  
             if (correspondingLabel) {  
               correspondingLabel.classList.remove('focused');  
             }  
@@ -164,49 +183,49 @@
 	    <table>
           <tr>
             <td class="re_table_1"><label for="username" id="username-label">用户名:</label></td>
-            <td class="re_table_2"><input type="text" name="username" placeholder="请输入用户名" id="username" for="username-label" required ></td>
+            <td class="re_table_2"><input type="text" name="username-label" placeholder="请输入用户名" id="username" required ></td>
 	      </tr>
           <tr>
             <td class="re_table_1"><label for="age" id="age-label">年龄:</label></td>
-            <td class="re_table_2"><input type="number" name="userage" min="7" placeholder="请输入年龄" id="age" for="age-label"></td>
+            <td class="re_table_2"><input type="number" name="age-label" min="7" placeholder="请输入年龄" id="age"></td>
 	      </tr>
 		  <tr>
             <td class="re_table_1"><label for="date" id="date-label">生日:</label></td>
-            <td class="re_table_2"><input type="date" name="date" id="date" for="date-label"></td>
+            <td class="re_table_2"><input type="date" name="date-label" id="date"></td>
 	      </tr>
 		  <tr>
-            <td class="re_table_1"><label>性别:</label></td>
+            <td class="re_table_1"><label id="sex-label">性别:</label></td>
             <td class="re_table_2" id="sex">
-			  <input type="radio" name="sex" value="male" checked>男
-			  <input type="radio" name="sex" value="female">女 
+			  <input type="radio" name="sex-label" value="male" checked>男
+			  <input type="radio" name="sex-label" value="female">女 
 			</td>
 	      </tr>
 		  <tr>
             <td class="re_table_1"><label for="email" id="email-label">邮箱:</label></td>
-            <td class="re_table_2"><input type="email" name="email" placeholder="请输入邮箱" id="email" for="email-label" required></td>
+            <td class="re_table_2"><input type="email" name="email-label" placeholder="请输入邮箱" id="email" required></td>
 	      </tr>
 		  <tr>
             <td class="re_table_1"><label for="password1" id="password1-label">密码:</label></td>
-            <td class="re_table_2"><input type="password" name="password" minlength="8" placeholder="请输入密码" id="password1" for="password1-label" required><p style="display:none; color:red; font-size:0.6rem;" class="alert">密码必须包含至少1个字母，1个数字和一个特殊符号</p></td>
+            <td class="re_table_2"><input type="password" name="password1-label" minlength="8" placeholder="请输入密码" id="password1" required><p style="display:none; color:red; font-size:0.6rem;" class="alert">密码必须包含至少1个字母，1个数字和一个特殊符号</p></td>
 	      </tr>
 		  <tr>
-            <td class="re_table_1"><label for="password2" id="password2-label">密码:</label></td>
-            <td class="re_table_2"><input type="password" name="password" minlength="8" placeholder="再次输入密码" id="password2" for="password2-label" required><p style="display:none; color:red; font-size:0.6rem;" class="alert">密码必须包含至少1个字母，1个数字和一个特殊符号</p></td>
+            <td class="re_table_1"><label for="password2" id="password2-label">确认密码:</label></td>
+            <td class="re_table_2"><input type="password" name="password2-label" minlength="8" placeholder="再次输入密码" id="password2" for="password2-label" required><p style="display:none; color:red; font-size:0.6rem;" class="alert">密码必须包含至少1个字母，1个数字和一个特殊符号</p></td>
 	      </tr>
 		  <tr>
-            <td class="re_table_1"><label>爱好:</label></td>
-            <td class="re_table_2"><input  type="checkbox" name="hobby" value="Java" checked>Java
-                                              <input class="hb" type="checkbox" name="hobby" value="Python">python
-                                              <input class="hb" type="checkbox" name="hobby" value="C++">C++
+            <td class="re_table_1"><label id="hobby-label">爱好:</label></td>
+            <td class="re_table_2"><input  type="checkbox" name="hobby-label" value="Java" checked>Java
+                                              <input class="hb" type="checkbox" name="hobby-label" value="Python">python
+                                              <input class="hb" type="checkbox" name="hobby-label" value="C++">C++
             </td>
           </tr>
 		  <tr>
-            <td class="re_table_1"><label for="color">喜欢的颜色:</label></td>
-            <td class="re_table_2"><input type="color" name="color" id="color"></td>
+            <td class="re_table_1"><label for="color" id="color-label">喜欢的颜色:</label></td>
+            <td class="re_table_2"><input type="color" name="color-label" id="color"></td>
           </tr>
 		  <tr>
-            <td class="re_table_1"><label for="select">喜欢的dog:</label></td>
-            <td class="re_table_2"><select name="select" id="select" onchange="showTextbox()">
+            <td class="re_table_1"><label for="select" id="select-label">喜欢的dog:</label></td>
+            <td class="re_table_2"><select name="select-label" id="select" onchange="showTextbox()">
                                    <option value="" selected>请选择动物</option>
                                    <option value="1">柯基</option>
                                    <option value="2">哈士奇</option>
