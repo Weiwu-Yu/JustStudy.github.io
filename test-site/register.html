@@ -120,17 +120,6 @@
 	  $(document).ready(function(){ 
 	    document.getElementById("myForm").addEventListener("submit", function(event) {  
         event.preventDefault(); 
-		
-		var isValid = this.checkValidity();  
-        var submitButton = document.querySelector("#register");
-        var titleElement = document.querySelector("#register");		
-        if (!isValid) {  		
-          submitButton.disabled = true;
-          titleElement.title = '信息不完整'; 		  
-        } else { 		
-          submitButton.disabled = false;  
-		  titleElement.title = '';  
-        }  
 	
 		var password1 = document.getElementById('password1').value;
         var password2 = document.getElementById('password2').value;	
