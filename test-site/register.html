@@ -104,7 +104,33 @@
 		font-size: 2rem;
 		text-align: center;
 	  }
-
+	  #passwordError{
+		width: auto;
+		padding: 10px;
+	    font-size: 1.5rem;
+	    font-weight: bold;  
+		border: 2mm ridge LightYellow;
+		background-color: DodgerBlue;
+        position: absolute; 
+        top: 50%;
+        left: 50%; 
+        transform: translate(-50%, -50%); 
+        display: flex;  
+        justify-content: center;  
+        align-items: center;  
+        flex-direction: column;  
+        z-index: 1; 
+	  }
+      #closeButton {  
+	    border-radius: 3px;
+		font-size: 1rem;
+		box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.4);
+		background-color: red;
+		color: white;
+		display: absolute;
+		top: 0;
+		right: 0;
+      }
 	</style>
     <script src="https://ajax.loli.net/ajax/libs/jquery/3.2.1/jquery.min.js"></script> 
 	<script>
@@ -134,8 +160,11 @@
 			passwordInputs.forEach(function(input) {  
 			  input.value = "";  
 			});
-    
-
+            document.getElementById("passwordError").style.display = "block"; 
+			function closePasswordError() {  
+              document.getElementById("passwordError").style.display = "none";		  
+            }
+			document.getElementById("closeButton").addEventListener("click", closePasswordError);
           }else{  
 		    document.getElementById("enroll").style.display = "block"; 
 	        document.querySelector('main').style.display = "none";
@@ -241,6 +270,10 @@
           <input type="submit" value="注册" id="register" class="button">
 		  <button type="button" onclick="window.location.href='register.html'" class="button">重新输入</button>
 		</div>
+		<div id="passwordError" style="display: none;">
+		  <p>输入的密码不一致，请重新输入</p>
+		  <button id="closeButton">X</button>
+	    </div>
       </form>
 	  <div class="rg_right">
 	    <p>已有账号，<a href="login.html" target="_self">立即登录</a></p>
