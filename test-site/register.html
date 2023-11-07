@@ -108,11 +108,6 @@
         outline: 2px solid Silver;
         border-radius: 5px;
 	  }
-	  footer {
-	    width: 80%;
-		font-size: 2rem;
-		text-align: center;
-	  }
 	  #passwordError{
 		width: auto;
 		padding: 30px;
@@ -147,6 +142,23 @@
 	  #closeButton:hover{	  
         background-color: red;
       }
+	  footer {
+	    background: linear-gradient(LightCyan, Honeydew);
+	    width: 60%;
+		text-align: center;
+		position: absolute; 
+        top: 50%;
+        left: 50%; 
+        transform: translate(-50%, -50%); 
+	  }
+	  #enroll{
+	    width: auto;
+		padding: 30px;
+	    font-size: 1.5rem;
+	    font-weight: bold;  
+		border: 1px solid black;
+        z-index: 1; 
+	  }
 	</style>
     <script src="https://ajax.loli.net/ajax/libs/jquery/3.2.1/jquery.min.js"></script> 
 	<script>
@@ -180,18 +192,23 @@
 			document.querySelector("table").style.filter = "blur(0.8px)";
 			document.querySelector(".rg_left").style.filter = "blur(0.8px)";
 			document.querySelector(".rg_right").style.filter = "blur(0.8px)";
+			document.querySelector(".rg_right").style.pointerEvents = "none";
 			document.getElementById("button").style.filter = "blur(0.8px)";  
+			document.getElementById("button").style.pointerEvents = "none";
 			function closePasswordError() {  
               document.getElementById("passwordError").style.display = "none";	
               document.querySelector("table").style.filter = "none";
 			  document.querySelector(".rg_left").style.filter = "none";
 			  document.querySelector(".rg_right").style.filter = "none";
-			  document.getElementById("button").style.filter = "none";  		  
+			  document.getElementById("button").style.filter = "none"; 
+			  document.querySelector(".rg_right").style.pointerEvents = "auto";
+			  document.getElementById("button").style.pointerEvents = "auto";			  
             }
 			document.getElementById("closeButton").addEventListener("click", closePasswordError);
           }else{  
 		    document.getElementById("enroll").style.display = "block"; 
-	        document.querySelector('main').style.display = "none";
+	        document.querySelector('main').style.filter = "blur(0.8px)";
+			document.querySelector('main').style.pointerEvents = "none";
 		  }
 		}else{
 		  var i=0;
@@ -263,7 +280,7 @@
 	      </tr>
 		  <tr>
             <td class="re_table_1"><label for="password2" id="password2-label">确认密码:</label></td>
-            <td class="re_table_2"><input type="password" name="password2-label" minlength="8" placeholder="再次输入密码" id="password2" for="password2-label" required><p style="display:none; color:red; font-size:0.6rem;" class="alert">密码必须包含至少1个字母，1个数字和一个特殊符号</p></td>
+            <td class="re_table_2"><input type="password" name="password2-label" minlength="8" placeholder="再次输入密码" id="password2" required><p style="display:none; color:red; font-size:0.6rem;" class="alert">密码必须包含至少1个字母，1个数字和一个特殊符号</p></td>
 	      </tr>
 		  <tr>
             <td class="re_table_1"><label id="hobby-label">爱好:</label></td>
@@ -304,7 +321,7 @@
 	  </div>
     </main>
 	<footer>
-	  <div style="display: none;" id="enroll">
+	  <div id="enroll" style="display: none;">
         <p>账户已注册成功，<a href="login.html" target="_self">去登录</a></p>
       </div>
 	</footer>
