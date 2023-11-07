@@ -83,11 +83,20 @@
 	    margin: 1rem auto;
 	  }
 	  .button {
+	    width: 100px;
+		height: 30px;
         border-radius: 3px;
         border-color: silver;
 		font-size: 1rem;
 		box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.4);
 		cursor: pointer;
+	  }
+	  .button:hover {
+	    font-weight: bold;
+	    background-color: ivory;
+		border-radius: 30px;
+        border:2px outset khaki;
+		box-shadow: none;
 	  }
 	  #register {
 	    margin-right: 2rem;
@@ -109,8 +118,8 @@
 		padding: 30px;
 	    font-size: 1.5rem;
 	    font-weight: bold;  
-		border: 2mm ridge LightYellow;
-		background-color: DodgerBlue;
+		border: 1mm ridge Lavender;
+		background-color: LightCyan;
         position: absolute; 
         top: 50%;
         left: 50%; 
@@ -121,18 +130,22 @@
         flex-direction: column;  
         z-index: 1; 
 	  }
-			  #passwordError p{
+	  #passwordError p{
 	    text-align: center;
 	  }
-      #closeButton {  
+      #closeButton {
+	    display: block;
+        padding: 2px 10px;	  
+        border: none;	  
 	    border-radius: 3px;
 		font-size: 1rem;
-		box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.4);
-		background-color: red;
-		color: white;
+		background-color: LightCyan;
 		position: absolute;
 		top: 0;
 		right: 0;
+      }
+	  #closeButton:hover{	  
+        background-color: red;
       }
 	</style>
     <script src="https://ajax.loli.net/ajax/libs/jquery/3.2.1/jquery.min.js"></script> 
@@ -164,8 +177,16 @@
 			  input.value = "";  
 			});
             document.getElementById("passwordError").style.display = "block"; 
+			document.querySelector("table").style.filter = "blur(0.8px)";
+			document.querySelector(".rg_left").style.filter = "blur(0.8px)";
+			document.querySelector(".rg_right").style.filter = "blur(0.8px)";
+			document.getElementById("button").style.filter = "blur(0.8px)";  
 			function closePasswordError() {  
-              document.getElementById("passwordError").style.display = "none";		  
+              document.getElementById("passwordError").style.display = "none";	
+              document.querySelector("table").style.filter = "none";
+			  document.querySelector(".rg_left").style.filter = "none";
+			  document.querySelector(".rg_right").style.filter = "none";
+			  document.getElementById("button").style.filter = "none";  		  
             }
 			document.getElementById("closeButton").addEventListener("click", closePasswordError);
           }else{  
@@ -275,7 +296,7 @@
 		</div>
 		<div id="passwordError" style="display: none;">
 		  <p>密码不一致<br>请重新设置</p>
-		  <button id="closeButton">X</button>
+		  <button id="closeButton">x</button>
 	    </div>
       </form>
 	  <div class="rg_right">
