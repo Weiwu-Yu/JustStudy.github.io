@@ -7,14 +7,14 @@
     <title>登录</title>
 	<style>
 	  body{
-	    background-image: url("images/login.png");
+	    background-image: linear-gradient(LightCyan, Honeydew);
 		background-size: cover;
 		background-repeat: no-repeat;
 		background-position-x: center;
 		height: 100vh;  
-                display: flex;  
-                justify-content: center;  
-                align-items: center;  
+        display: flex;  
+        justify-content: center;  
+        align-items: center;  
 	  }
 	  main{
 	    display: grid;
@@ -64,12 +64,16 @@
 		text-decoration: none;	
         width: 50%;
 		height: 25px;
-        border: thin solid darkgrey;
 		border-radius: 5px;
-        background-color: darkgrey;
-        color: white;
+        color: Aquamarine;
 		font-size: 1rem;
 		text-align: center;
+	    transition: all 0.5s;
+	  }
+	  #click:hover {
+	    color: white;
+		background-color: Aquamarine;
+		box-shadow: 0 0 5px Aquamarine, 0 0 25px Aquamarine, 0 0 50px Aquamarine, 0 0 100px Aquamarine;
 	  }
 	  fieldset:invalid ~ fieldset {      /* 在无效的字段集后隐藏该字段集 */
         display: none;
