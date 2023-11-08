@@ -180,6 +180,22 @@
         background-color: Aquamarine;
       }
     </style>
+	<script>
+	  function checkLogin() {  
+        var checkEmail = document.getElementById('checkEmail').value;  
+        var checkPassword = document.getElementById('checkPassword').value;  
+        var storedemail = localStorage.getItem('storedemail');  
+        var storedpwd = localStorage.getItem('storedpwd');  
+
+        if (checkEmail === storedemail && checkPassword === storedpwd) {  
+          var click = document.getElementById('click');  
+		  window.location.href = "index.html"; 
+          window.location.href = click.href;  
+        }else{  
+          alert("账号或密码错误！");  
+        }  
+      }  
+	</script>
   </head>
   <body>
     <main>
@@ -196,7 +212,7 @@
 		  </label>
 		</fieldset>
 		<div id="login" class="div">
-	      <a href="index.html" target="_self" id="click" class="login">账号登录<span></span><span></span><span></span><span></span></a>  <!-- 也可以a里嵌套button:<a href="index.html"><button>登录</button></a> -->
+	      <a href="#" onclick="checkLogin(); event.preventDefault();" target="_self" id="click" class="login">账号登录<span></span><span></span><span></span><span></span></a>  <!-- 也可以a里嵌套button:<a href="index.html"><button>登录</button></a> -->
           <a href="index.html" target="_self" class="login">游客登录<span></span><span></span><span></span><span></span></a>
 	    </div>
 	  </form>
