@@ -209,10 +209,10 @@
 		    document.getElementById("enroll").style.display = "block"; 
 	        document.querySelector('main').style.filter = "blur(0.8px)";
 			document.querySelector(".rg_right").style.pointerEvents = "none";
-			document.getElementById("button").style.pointerEvents = "none";
-		      var email = document.getElementById('email').value;  
+			document.getElementById("button").style.pointerEvents = "none";	
+			var email = document.getElementById('email').value;  
             localStorage.setItem('storedemail', email);  
-            localStorage.setItem('storedpwd', password2);
+            localStorage.setItem('storedpwd', password2);  
 		  }
 		}else{
 		  var i=0;
