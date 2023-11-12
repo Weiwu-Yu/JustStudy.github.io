@@ -16,7 +16,7 @@
         justify-content: center;  
         align-items: center;  
 	  }
-	  main{
+	  main, footer{
 	    display: grid;
         place-items: center;
 	    width: 80%;
@@ -32,7 +32,7 @@
         background-position-y: -125px;
         z-index: 1;
 	  }
-	  main::after{
+	  main::after, footer::after{
 	    content: "";
         position: absolute;
         width: 100%;
@@ -53,6 +53,9 @@
 	  }
 	  form{
 	    height: 200px;
+		display: flex;  
+        flex-direction: column;  
+        align-items: center;  
 	  }
 	  fieldset{
 	    padding: 15px;
@@ -157,29 +160,39 @@
 		  opacity: 0;
 		}
       }
-	  #login {
+	  #login, #restorediv {
 	    display: flex;
 		justify-content: center;
+	  }
+	  #restorediv{
+	    gap: 50px;
 	  }
 	  fieldset:invalid ~ fieldset {      /* 在无效的字段集后隐藏该字段集 */
         display: none;
       }
-      main form:invalid #click { 	  /* 在表单无效时，将按钮变暗并禁用它 */
+      form:invalid #click { 	  /* 在表单无效时，将按钮变暗并禁用它 */
         opacity: 0.3;
         pointer-events: none;
       }
-	  .input:invalid{
+	  .input:invalid {
 	    height: 20px;
         background-color: ivory;
         border: none;
         outline: 2px solid red;
         border-radius: 5px;
 	  }
-      .input:valid{
+      .input:valid {
 	  	height: 20px;
         background-color: Aquamarine;
       }
+	  td {
+	    text-align: right;
+	  }
+	  td:hover {
+	    font-weight: bold;
+	  }
     </style>
+	<script src="https://ajax.loli.net/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
 	<script>
 	  function checkLogin() {  
         var checkEmail = document.getElementById('checkEmail').value;  
@@ -194,13 +207,43 @@
         }else{  
           alert("账号或密码错误！");  
         }  
-      }  
+      } 
+	  
+      function RestorePwd(){
+	    $('main').hide();
+		$('footer').show();
+	  }
+	  
+      function validatePasswords() {  
+		var password1 = document.getElementById('password1').value;
+        var password2 = document.getElementById('password2').value;
+		var passwordInputs = document.querySelectorAll('[id^="password"]');
+        var regex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=~`{}[\]|:;"'<>,.?\/]).{8,}$/;  
+        if (regex.test(password1) && regex.test(password2)){
+	      if(password1 !== password2){ 
+            document.getElementById('alert').style.display = "none";  
+			document.getElementById('restore').style.title = "密码不相等";			
+			passwordInputs.forEach(function(input) {  
+			  input.value = "";  
+			});
+		  }else{
+			document.getElementById('alert').style.display = "none"; 
+			document.getElementById('restore').style.title = "";
+		  }
+		}else{
+	      document.getElementById('alert').style.display = "block";  
+		  document.getElementById('restore').style.title = "密码不符合";			
+		  passwordInputs.forEach(function(input) {  
+			input.value = ""; 
+		  });
+        }	
+	  };  
 	</script>
   </head>
   <body>
     <main>
 	  <img src="images/loginlogo.png" alt="logo" class="div">
-      <form>
+      <form method="post">
         <fieldset class="div">
           <label>邮箱
 		    <input type="email" name="email" placeholder="请输入账号" class="input" id="checkEmail" required>
@@ -218,8 +261,28 @@
 	  </form>
 	  <div>
 		  <a href="register.html" target="_self" class="div">注册账号</a>
-		  <a href="restore.html" target="_self" class="div">重置密码</a>
+		  <a href="#" onclick="RestorePwd(); event.preventDefault();" target="_self" class="div">重置密码</a>
 	  </div>
 	</main>
+	<footer style="display: none">
+      <h1 class="div">重置密码</h1>
+      <form method="post" class="div" id="myForm">
+		<table cellspacing="20">
+          <tr>       
+            <td>密码：</td>
+           <td><input type="password" minlength="6" placeholder="请输入密码" id="password1" class="input" required></td>
+		  </tr>
+          <tr>
+            <td>确认密码：</td>
+            <td><input type="password" minlength="6" placeholder="再次输入密码" id="password2" class="input" required></td>
+		  </tr>
+		</table>
+		<p id="alert" style="display:none">密码须包含至少一个字母、数字和特殊符号</p>
+		<div id="restorediv">
+		  <input type="submit" onclick="validatePasswords()" value="完成" class="login" id="restore">
+		  <input type="button" onclick="window.location.href='login.html'" value="返回" class="login">
+		</div>
+	  </form>
+    </footer>
   </body>
 </html>
