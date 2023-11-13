@@ -179,7 +179,7 @@
         var password2 = document.getElementById('password2').value;	
 		var passwordInputs = document.querySelectorAll('[id^="password"]');
         var passwordalert =	 document.querySelectorAll('.alert');	
-        var regex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=~`{}[\]|:;"'<>,.?\/]).{8,}$/;  
+        var regex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=~`{}[\]|:;"'<>,.?\/]).{6,}$/;  
         if (regex.test(password1) && regex.test(password2)){
 	      if(password1 !== password2){
             for (var i = 0; i < passwordalert.length; i++) {  
