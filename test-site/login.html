@@ -166,6 +166,7 @@
 	  }
 	  #restorediv{
 	    gap: 50px;
+		margin: auto;
 	  }
 	  fieldset:invalid ~ fieldset {      /* 在无效的字段集后隐藏该字段集 */
         display: none;
@@ -190,6 +191,11 @@
 	  }
 	  td:hover {
 	    font-weight: bold;
+	  }
+	  #alert{
+	    margin: 0;
+		font-size: 0.7rem;
+		color: red;
 	  }
     </style>
 	<script src="https://ajax.loli.net/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
@@ -218,24 +224,24 @@
 		var password1 = document.getElementById('password1').value;
         var password2 = document.getElementById('password2').value;
 		var passwordInputs = document.querySelectorAll('[id^="password"]');
-        var regex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=~`{}[\]|:;"'<>,.?\/]).{8,}$/;  
+        var regex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=~`{}[\]|:;"'<>,.?\/]).{6,}$/;  
         if (regex.test(password1) && regex.test(password2)){
 	      if(password1 !== password2){ 
             document.getElementById('alert').style.display = "none";  
-			document.getElementById('restore').style.title = "密码不相等";			
+			document.getElementById('restore').setAttribute('title', '密码不相等'); 		
 			passwordInputs.forEach(function(input) {  
 			  input.value = "";  
 			});
+            return false;  
 		  }else{
 			document.getElementById('alert').style.display = "none"; 
-			document.getElementById('restore').style.title = "";
+			document.getElementById('restore').setAttribute('title', ''); 
+			localStorage.setItem('storedpwd', password2);  
 		  }
 		}else{
 	      document.getElementById('alert').style.display = "block";  
-		  document.getElementById('restore').style.title = "密码不符合";			
-		  passwordInputs.forEach(function(input) {  
-			input.value = ""; 
-		  });
+		  document.getElementById('restore').setAttribute('title', '密码不符合');
+		  return false;  
         }	
 	  };  
 	</script>
@@ -266,7 +272,7 @@
 	</main>
 	<footer style="display: none">
       <h1 class="div">重置密码</h1>
-      <form method="post" class="div" id="myForm">
+      <form method="post" class="div" id="myForm" onsubmit="return validatePasswords()">
 		<table cellspacing="20">
           <tr>       
             <td>密码：</td>
@@ -279,7 +285,7 @@
 		</table>
 		<p id="alert" style="display:none">密码须包含至少一个字母、数字和特殊符号</p>
 		<div id="restorediv">
-		  <input type="submit" onclick="validatePasswords()" value="完成" class="login" id="restore">
+		  <input type="submit" value="完成" class="login" id="restore">
 		  <input type="button" onclick="window.location.href='login.html'" value="返回" class="login">
 		</div>
 	  </form>
