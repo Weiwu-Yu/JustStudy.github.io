@@ -228,7 +228,7 @@
         if (regex.test(password1) && regex.test(password2)){
 	      if(password1 !== password2){ 
             document.getElementById('alert').style.display = "none";  
-			document.getElementById('restore').setAttribute('title', '密码不相等'); 		
+			document.getElementById('restore').setAttribute('title', '密码不一致'); 		
 			passwordInputs.forEach(function(input) {  
 			  input.value = "";  
 			});
