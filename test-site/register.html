@@ -124,6 +124,7 @@
         align-items: center;  
         flex-direction: column;  
         z-index: 1; 
+		pointer-events: auto;
 	  }
 	  #passwordError p{
 	    text-align: center;
@@ -143,17 +144,19 @@
         background-color: red;
       }
 	  footer {
-	    background: linear-gradient(LightCyan, Honeydew);
-	    width: 60%;
-		text-align: center;
+	    width: 80%;
 		position: absolute; 
         top: 50%;
         left: 50%; 
         transform: translate(-50%, -50%); 
 	  }
 	  #enroll{
-	    width: auto;
+	  	background: RosyBrown;
+		color: white;
+	    width: 80%;
+		margin: auto;
 		padding: 30px;
+		text-align: center;
 	    font-size: 1.5rem;
 	    font-weight: bold;  
 		border: 1px solid black;
@@ -180,6 +183,7 @@
 		var passwordInputs = document.querySelectorAll('[id^="password"]');
         var passwordalert =	 document.querySelectorAll('.alert');	
         var regex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=~`{}[\]|:;"'<>,.?\/]).{6,}$/;  
+		
         if (regex.test(password1) && regex.test(password2)){
 	      if(password1 !== password2){
             for (var i = 0; i < passwordalert.length; i++) {  
@@ -189,27 +193,17 @@
 			  input.value = "";  
 			});
             document.getElementById("passwordError").style.display = "block"; 
-			document.querySelector("table").style.filter = "blur(0.8px)";
-			document.querySelector(".rg_left").style.filter = "blur(0.8px)";
-			document.querySelector(".rg_right").style.filter = "blur(0.8px)";
-			document.querySelector(".rg_right").style.pointerEvents = "none";
-			document.getElementById("button").style.filter = "blur(0.8px)";  
-			document.getElementById("button").style.pointerEvents = "none";
+			document.querySelector("main").style.pointerEvents = "none";
 			function closePasswordError() {  
               document.getElementById("passwordError").style.display = "none";	
-              document.querySelector("table").style.filter = "none";
-			  document.querySelector(".rg_left").style.filter = "none";
-			  document.querySelector(".rg_right").style.filter = "none";
-			  document.getElementById("button").style.filter = "none"; 
-			  document.querySelector(".rg_right").style.pointerEvents = "auto";
-			  document.getElementById("button").style.pointerEvents = "auto";			  
+			  document.querySelector("main").style.filter = "none";  
+			  document.querySelector("main").style.pointerEvents = "auto";		  
             }
 			document.getElementById("closeButton").addEventListener("click", closePasswordError);
           }else{  
 		    document.getElementById("enroll").style.display = "block"; 
-	        document.querySelector('main').style.filter = "blur(0.8px)";
-			document.querySelector(".rg_right").style.pointerEvents = "none";
-			document.getElementById("button").style.pointerEvents = "none";	
+	        document.querySelector('main').style.filter = "blur(0.5px)";
+			document.querySelector("main").style.pointerEvents = "none";
 			var email = document.getElementById('email').value;  
             localStorage.setItem('storedemail', email);  
             localStorage.setItem('storedpwd', password2);  
