@@ -110,20 +110,26 @@
 	  }
 	  #passwordError{
 		width: auto;
-		padding: 30px;
 	    font-size: 1.5rem;
 	    font-weight: bold;  
-		border: 1mm ridge Lavender;
-		background-color: LightCyan;
+		border: 1mm ridge DimGray;
+		background-color: white;
         position: absolute; 
         top: 50%;
         left: 50%; 
         transform: translate(-50%, -50%); 
         z-index: 1; 
-		transition: opacity 1s ease-out
+		transition: opacity 1s ease-in-out;
+		justify-content: center;
 	  }
-	  #passwordError p{
-	    text-align: center;
+	  #passwordError p:first-child {
+	    margin: 50px;
+	  }
+	  #passwordError p:last-child {
+		color: DimGray;
+		font-size: 0.8rem;
+		position: fixed;
+		bottom: 0;
 	  }
 	  footer {
 	    width: 80%;
@@ -169,7 +175,7 @@
 		}else{
 		  document.getElementById('elseselect').style.display="none";
 		}
-	  } 
+	  }  
 	  
 	  $(document).ready(function(){ 
 	    document.getElementById("myForm").addEventListener("submit", function(event) {  
@@ -189,16 +195,26 @@
 			passwordInputs.forEach(function(input) {  
 			  input.value = "";  
 			});
-            document.getElementById("passwordError").style.display = "block"; 
+            document.getElementById("passwordError").style.display = "flex"; 
+			var countdownnum = 3;  
+			var countdownElement = document.getElementById('countdownnum');  
+			countdownElement.innerHTML = countdownnum;
+			var interval = setInterval(function() {  
+			  countdownnum--;  
+			  countdownElement.innerHTML = countdownnum;  
+			  if (countdownnum === 0) {  
+			    clearInterval(interval);  
+			  }  
+            }, 1000); 
+			document.getElementById("passwordError").style.opacity = "1";   
 			document.querySelector("main").style.pointerEvents = "none";
-			document.getElementById("passwordError").style.opacity = "1";
 			setTimeout(function() {  
               document.getElementById("passwordError").style.opacity = "0";   
 			  document.querySelector("main").style.pointerEvents = "auto";
-			}, 2000); 
-			setTimeout(function() {  
-              document.getElementById("passwordError").style.display = "none";   
 			}, 3000); 
+			setTimeout(function() {  
+              document.getElementById("passwordError").style.display = "none";  
+			}, 4000); 
           }else{  
 		    document.getElementById("enroll").style.display = "block"; 
 	        document.querySelector('main').style.filter = "blur(0.5px)";
@@ -316,6 +332,7 @@
 		</div>
 		<div id="passwordError" style="display: none;">
 		  <p>密码不一致<br>请重新设置</p>
+		  <p id="countdown">提示倒计时"<span id="countdownnum">3</span>"</p>
 	    </div>
       </form>
 	  <div class="rg_right">
