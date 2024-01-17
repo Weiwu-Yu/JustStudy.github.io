@@ -13,6 +13,9 @@ html{
 main h2 + pre {
   font-size: 15px;
 }
+main h2 + pre::selection {
+  color: red;
+}
 main h2 + pre:hover::first-letter {
   color: Lime;
   font-weight: bolder;
