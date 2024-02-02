@@ -1,0 +1,179 @@
+@import "foundation.css";
+
+html{
+  background-image: linear-gradient(rgba(0, 0, 255, 0.5), rgba(255, 255, 0, 0.5)), url(../images/bg.gif);
+}
+
+@media (max-width: 800px){
+  html{
+	background-image: linear-gradient(rgba(255, 0, 0, 0.5), rgba(0, 0, 255, 0.5));
+  }
+}
+
+main h2 + pre {
+  font-size: 15px;
+}
+main h2 + pre::selection {
+  color: red;
+}
+main h2 + pre:hover::first-letter {
+  color: Lime;
+  font-weight: bolder;
+}
+main section {
+  font-family: "Yeseva One", serif;	
+}
+
+/* 表格 */
+table {
+  table-layout: auto;
+  border-collapse: collapse;
+  border: 3px solid rgb(200,200,200);
+  letter-spacing: 0.1px;
+  font-size: 0.9rem;
+  width: calc(100% - 5px);
+}
+caption {
+  padding: 10px;
+}
+caption span {
+  display: inline-block;
+  float: right;
+}
+caption:hover::first-line{
+  color: Khaki;
+}
+td, th {
+  border: 1px solid rgb(190,190,190);
+  padding: 10px 5px;
+}
+td {
+  text-align: center;
+}
+/* 1、:nth-child() 选择器
+:nth-child(n) 选择器匹配属于其父元素的第 N 个子元素，不论元素的类型，n 可以是数字、关键词或公式。
+
+2、:nth-of-type(n)
+:nth-of-type(n) 选择器匹配属于父元素的特定类型的第 N 个子元素的每个元素，n 可以是数字、关键词或公式。
+
+原文链接：https://blog.csdn.net/lonecry/article/details/87864416  */
+thead tr:nth-child(1) th{   /*:first-child和:nth-child(1)一样,同理还有最后的元素last-child与nth-last-child(1)*/
+  background-color: Gray;
+}
+tbody th {
+  background-color: Gray;
+}
+tr:nth-child(even) td {       
+  background-color: White;
+}
+tr:nth-child(odd) td {
+  background-color: Gainsboro;
+}
+
+/* 引用 */
+blockquote{
+  font-family: 'Yeseva One', sans-serif;
+  padding: 0 20px 10px 20px;
+  background: #eee;
+  border-radius: 10px;
+  position: relative;
+}
+blockquote cite{
+  position: absolute;
+  right: 10px;
+}
+blockquote div::before {
+  content: '\201C';
+  color: black;
+}
+blockquote div::after {
+  content: '\201D';
+  color: black;
+}
+
+#input{
+  text-decoration: green wavy underline;
+}
+#input:hover{
+  background-color: green;
+  color: white;
+  font-weight: bold;
+  text-decoration: blue underline;
+}
+
+/* 滑动隐藏的面板 */
+label[for="toggle"] {
+  z-index: 1;
+  cursor: pointer;
+}
+label[for="toggle"]:hover{
+  background-color: white;
+}
+input[type="checkbox"] {
+  position: absolute;
+  left: -100px;
+}
+aside {
+  background-color: Cornsilk;
+  width: 450px;
+  height: 98%;
+  padding: 10px 1%;
+  position: fixed; /* 它是将一个元素相对浏览器视口固定，而不是像absolute相对另外一个元素 */
+  top: 0;
+  right: -500px;
+  transition: 0.6s all;
+}
+input[type="checkbox"]:checked + aside {
+  right: 0px;
+}
+
+/* 定位 */
+.info-box {
+  width: 450px;
+  height: 400px;
+  margin: 0 auto;
+}
+.info-box ul {
+  padding-left: 0;
+  margin-top: 0;
+}
+.info-box li {
+  float: left;
+  list-style-type: none;
+  width: 150px;
+}
+.info-box li a {
+  display: inline-block;
+  text-decoration: none;
+  width: 100%;
+  line-height: 3;
+  background-color: red;
+  color: black;
+  text-align: center;
+}
+.info-box li a:focus,
+.info-box li a:hover {
+  background-color: #a60000;
+  color: white;
+}
+.info-box li a.active {
+  background-color: #a60000;
+  color: white;
+}
+.info-box .panels {
+  height: 352px;
+  position: relative;
+  clear: both;
+}
+.info-box article {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 352px;
+  padding: 10px;
+  color: white;
+  background-color: #a60000;
+}
+.info-box .active-panel {
+  z-index: 1;
+}
