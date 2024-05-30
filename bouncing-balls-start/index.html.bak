@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>弹跳彩球</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+
+  <body>
+    <h1>弹跳彩球</h1>
+	<p id="score">剩余<strong>几</strong>个球</p>
+    <canvas></canvas>
+
+    <script src="main.js"></script>
+  </body>
+</html>
