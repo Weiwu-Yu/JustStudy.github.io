@@ -48,6 +48,7 @@ function Ball(x, y, velX, velY, color, size, exists) {
   Shape.call(this, x, y, velX, velY, exists);  
   this.color = color;
   this.size = size;
+  this.isColliding = false; 
 }
 
 /* 
@@ -122,13 +123,22 @@ Ball.prototype.update = function () {
 
 Ball.prototype.collisionDetect = function () {
   for (let j = 0; j < balls.length; j++) {
-    if (this !== balls[j]) {
-      const dx = this.x - balls[j].x;
-      const dy = this.y - balls[j].y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
+	const dx = this.x - balls[j].x;
+    const dy = this.y - balls[j].y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+	
+    if (this !== balls[j] && !this.isColliding && !balls[j].isColliding) {
       if (distance < this.size + balls[j].size) {
+		this.isColliding = true;  
+        balls[j].isColliding = true;  
         balls[j].color = this.color = randomColor();
+		console.log(balls[j].color);
+      }
+    }
+    if (this !== balls[j] && this.isColliding && balls[j].isColliding) {
+      if (distance >= this.size + balls[j].size) {
+		this.isColliding = false;  
+        balls[j].isColliding = false;  
       }
     }
   }
