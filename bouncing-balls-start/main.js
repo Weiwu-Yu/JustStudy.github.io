@@ -1,3 +1,11 @@
+// 初始状态为游戏未结束
+
+let gameIsOver = false;
+
+// 初始状态为不暂停
+
+let isPaused = false; 
+
 // 定义弹球计数变量
 
 const para = document.getElementById('score');
@@ -132,7 +140,6 @@ Ball.prototype.collisionDetect = function () {
 		this.isColliding = true;  
         balls[j].isColliding = true;  
         balls[j].color = this.color = randomColor();
-		console.log(balls[j].color);
       }
     }
     if (this !== balls[j] && this.isColliding && balls[j].isColliding) {
@@ -220,9 +227,51 @@ EvilCircle.prototype.setControls = function () {
 	case "ARROWDOWN":
       this.y += this.velY;
       break;
+	case " ":
+	  if (!gameIsOver) {
+		isPaused = !isPaused;
+	    if (isPaused) {  
+          pausedPrompt();  
+        } else {  
+          continuePrompt();  
+        }
+	  }
+	  break;
 	}
   };
 };
+
+// 定义游戏暂停提示函数
+
+function pausedPrompt() {
+  hideDialog('continueDialog'); 
+  showDialog('pauseDialog');  
+}
+
+// 定义游戏继续提示函数
+
+function continuePrompt() {
+  hideDialog('pauseDialog'); 
+  showDialog('continueDialog'); 
+}
+
+// 隐藏对话框函数
+
+function hideDialog(dialogId) {  
+    const dialog = document.getElementById(dialogId);  
+    dialog.style.display = 'none';  
+}
+
+// 显示对话框函数
+
+function showDialog(dialogId, duration = 3000) {  
+  const dialog = document.getElementById(dialogId);  
+  dialog.style.display = 'block';  
+  
+  setTimeout(() => {  
+    dialog.style.display = 'none';  
+  }, duration);  
+} 
 
 // 定义 EvilCircle 冲突检测函数
 
@@ -240,7 +289,8 @@ EvilCircle.prototype.collisionDetect = function () {
       }
     } 
   }
-  if (balls.every(ball => !ball.exists)) {  
+  if (balls.every(ball => !ball.exists)) { 
+    gameIsOver = true;   
     showGameOverAndRestartButtons();  
   }  
 };
@@ -269,60 +319,74 @@ function showGameOverAndRestartButtons() {
   document.body.appendChild(gameOverElement);  
   document.body.appendChild(restartButton);  
   
-  restartButton.addEventListener('click', function() {  
+  restartButton.addEventListener('click', function() { 
+    gameIsOver = false;  
     resetGame();  
     gameOverElement.style.display = 'none';  
     restartButton.style.display = 'none'; 
   });
 }  
   
-function resetGame() {  
-  balls.forEach(ball => ball.exists = true);  
+function resetGame() { 
+  balls = [];
+  generateBall(); 
 }
 
 // 定义一个数组，生成并保存所有的球
 
 let balls = [];
 
-while (balls.length < 3) {
-  let size = random(10, 20);
-  let ball = new Ball(
-    // 为避免绘制错误，球至少离画布边缘球本身一倍宽度的距离
-    random(0 + size, width - size),
-    random(0 + size, height - size),
-    random(-7, 7),
-    random(-7, 7),
-    randomColor(),
-    size,
-	true
-  );
-  balls.push(ball);
-  count++;
-  para.textContent = '剩余' + count + '个球';
+function generateBall(){
+
+  while (balls.length < 3) {
+    let size = random(10, 20);
+    let ball = new Ball(
+      // 为避免绘制错误，球至少离画布边缘球本身一倍宽度的距离
+      random(0 + size, width - size),
+      random(0 + size, height - size),
+      random(-7, 7),
+      random(-7, 7),
+      randomColor(),
+      size,
+	  true
+    );
+    balls.push(ball);
+    count++;
+    para.textContent = '剩余' + count + '个球';
+  }
 }
 
 let evilCircle = new EvilCircle(width/2, height - 15, true);
   
 evilCircle.setControls();
 
+continuePrompt();
+
 // 定义一个循环来不停地播放
 
 function loop() {
-  ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
-  ctx.fillRect(0, 0, width, height);
+  if (!isPaused) { 
+    ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+    ctx.fillRect(0, 0, width, height); 
+  
+    if (balls.length == 0){
+      generateBall();
+    }
 
-  for (let i = 0; i < balls.length; i++) {
-	if(balls[i].exists){
-      balls[i].draw();
-      balls[i].update();
-	  balls[i].collisionDetect();
-	  evilCircle.collisionDetect();
-	}
+    for (let i = 0; i < balls.length; i++) {
+	  if(balls[i].exists){
+        balls[i].draw();
+        balls[i].update();
+	    balls[i].collisionDetect();
+	    evilCircle.collisionDetect();
+	  }
+    }
+    evilCircle.draw();
+    evilCircle.checkBounds();
   }
-  evilCircle.draw();
-  evilCircle.checkBounds();
 
+  // 无论游戏是否暂停，都继续请求下一帧  
+  // 但是只有当游戏没有被暂停时，才会执行渲染和更新逻辑,确保了当游戏恢复时，动画会立即继续，而不需要等待下一帧的到来
   requestAnimationFrame(loop);
 }
 loop();
-
