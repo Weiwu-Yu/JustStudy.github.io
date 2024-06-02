@@ -213,19 +213,27 @@ EvilCircle.prototype.setControls = function () {
   switch (key) {
     case "A":
 	case "ARROWLEFT":
-      this.x -= this.velX;
+	  if(!isPaused){
+        this.x -= this.velX;
+	  }
       break;
     case "D":
 	case "ARROWRIGHT":
-      this.x += this.velX;
+	  if(!isPaused){
+        this.x += this.velX;
+	  }
       break;
     case "W":
 	case "ARROWUP": 
-      this.y -= this.velY;
+	  if(!isPaused){
+        this.y -= this.velY;
+	  }
       break;
     case "S":
 	case "ARROWDOWN":
-      this.y += this.velY;
+	  if(!isPaused){
+        this.y += this.velY;
+	  }
       break;
 	case " ":
 	  if (!gameIsOver) {
@@ -357,7 +365,7 @@ function generateBall(){
 }
 
 let evilCircle = new EvilCircle(width/2, height - 15, true);
-  
+
 evilCircle.setControls();
 
 continuePrompt();
