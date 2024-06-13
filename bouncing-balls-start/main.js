@@ -140,6 +140,7 @@ Ball.prototype.collisionDetect = function () {
 		this.isColliding = true;  
         balls[j].isColliding = true;  
         balls[j].color = this.color = randomColor();
+		console.log(this.color);
       }
     }
     if (this !== balls[j] && this.isColliding && balls[j].isColliding) {
@@ -150,6 +151,7 @@ Ball.prototype.collisionDetect = function () {
     }
   }
 };
+
 
 // 定义 EvilCircle 构造器，继承自 Shape
 
@@ -346,7 +348,7 @@ let balls = [];
 
 function generateBall(){
 
-  while (balls.length < 3) {
+  while (balls.length < 5) {
     let size = random(10, 20);
     let ball = new Ball(
       // 为避免绘制错误，球至少离画布边缘球本身一倍宽度的距离
