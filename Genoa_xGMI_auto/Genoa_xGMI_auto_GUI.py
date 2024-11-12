@@ -45,7 +45,7 @@ import re
 import time
 import tkinter as tk
 from tkinter import font  
-from tkinter import filedialog, messagebox
+from tkinter import simpledialog, filedialog, messagebox
 from tkinter.scrolledtext import ScrolledText
 from PIL import Image, ImageTk
 from datetime import datetime 
@@ -263,10 +263,11 @@ class App:
         self.driver_path_label = tk.Label(frame_left, text="驱动路径:")  
         self.driver_path_label.grid(row=1, column=0, sticky='w', padx=5, pady=10)  
         self.driver_path_var = tk.StringVar(value="")  
-        self.driver_path_entry = tk.Entry(frame_left, textvariable=self.driver_path_var, width=50)  
+        self.driver_path_entry = tk.Entry(frame_left, textvariable=self.driver_path_var, width=50, state='readonly')  
         self.driver_path_entry.grid(row=1, column=1, sticky='ew', padx=5, pady=10)
         # 根据初始浏览器选择设置驱动路径显示文本
         self.select_browser_radio()  # 调用一次以设置初始状态
+        self.driver_info_dialog = None
 
         self.entries_vars_current_value = []
         self.entries_vars_default_value = []
@@ -353,9 +354,9 @@ class App:
         self.estimated_time_entry.bind("<FocusOut>", self.on_estimated_time_focus_out)
         self.estimated_time_entry.bind("<Return>", self.handle_enter)
         
-        self.button_confirm = HoverButton(frame_left, text="confirm", color = "lightgray", command=self.handle_input_button)
+        self.button_confirm = HoverButton(frame_left, text="confirm", color = "lightgray", command=self.handle_confirm_button)
         self.button_confirm.grid(row=11, column=1, sticky='w', padx=20, pady=20)
-        self.button_cancel = HoverButton(frame_left, text="cancel", color = "lightgray", command=self.handle_input_button)
+        self.button_cancel = HoverButton(frame_left, text="cancel", color = "lightgray", command=self.handle_cancel_button)
         self.button_cancel.grid(row=11, column=1, sticky='e', padx=150, pady=20)
 
         self.text_area = ScrolledText(frame_right, wrap=tk.WORD, state=tk.DISABLED, bg='lightgray', fg='black', font=("Courier", 10))
@@ -374,6 +375,8 @@ class App:
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def on_closing(self):
+        if self.is_installing_driver:
+            self.is_installing_driver = False
         if messagebox.askokcancel("Quit", "APP is closing...Do you want to quit?"):
             if self.input_popup is not None and self.input_popup.winfo_exists():
                 self.input_popup.destroy()
@@ -381,12 +384,10 @@ class App:
             self.window_closed = True
             self.root.quit()
             self.root.destroy()
-     
-    def handle_input_button(self, event):
+
+    def click_button_to_change_entry_info(self):
         self.entries = [self.username_entry, self.password_entry, self.runtimes_entry, self.estimated_time_entry]
         self.entries_var = [self.username_var, self.password_var, self.runtimes_var, self.estimated_time_var]
-        if self.is_installing_driver:
-            self.show_driver_download_info()
         for i, entry in enumerate(self.entries, start=1):
             if not entry.get():
                 self.entries_vars_current_value[i] = self.entries_vars_current_value[i]
@@ -412,19 +413,30 @@ class App:
                     self.root.focus_set()
                 else:
                     self.entries_vars_current_value[i] = entry.get()
-            if event.widget.itemcget(event.widget.text_id, "text") == "confirm":
-                entry.config(state='readonly')
-                for rb in self.radio_buttons:
-                    rb.config(state=tk.DISABLED)
-                    self.is_radio_enabled = False
-                self.input_ready = True
-            else:
-                for rb in self.radio_buttons:
-                    rb.config(state=tk.NORMAL)
-                    self.is_radio_enabled = True
-                entry.config(state='normal')
-                self.input_ready = False
-            
+
+    def handle_confirm_button(self, event):
+        if self.is_installing_driver:
+            self.show_driver_download_info()
+        self.click_button_to_change_entry_info()
+        for entry in enumerate(self.entries, start=1):
+            #if event.widget.itemcget(event.widget.text_id, "text") == "confirm":
+            entry.config(state='readonly')
+            for rb in self.radio_buttons:
+                rb.config(state=tk.DISABLED)
+                self.is_radio_enabled = False
+            self.input_ready = True
+
+    def handle_cancel_button(self, event):
+        if self.is_installing_driver:
+            self.show_driver_download_info()
+        self.click_button_to_change_entry_info()
+        for entry in enumerate(self.entries, start=1):
+            entry.config(state='normal')
+            for rb in self.radio_buttons:
+                rb.config(state=tk.NORMAL)
+                self.is_radio_enabled = True
+            self.input_ready = False
+
     def handle_enter(self, event):
         self.entries = [self.username_entry, self.password_entry, self.runtimes_entry, self.estimated_time_entry]
         idx = self.entries.index(event.widget)
@@ -473,12 +485,18 @@ class App:
         menu_bar.add_cascade(label="File", menu=file_menu)  
 
         driver_menu = tk.Menu(file_menu, tearoff=0) 
-        file_menu.add_command(label="Use default driver", command=self.select_browser_radio)
+        file_menu.add_command(label="Use default driver", command=self.use_default_driver)
         file_menu.add_cascade(label="Get new driver", menu=driver_menu)
         # 添加获取驱动的选项  
         driver_menu.add_command(label="Open", command=self.get_driver_from_folder)
         driver_menu.add_separator()
-        driver_menu.add_command(label="Install", command=self.start_driver_installation_threading) 
+        driver_menu.add_command(label="Install", command=self.start_driver_installation_Prepare) 
+
+    def use_default_driver(self):
+        if self.is_installing_driver:
+            self.show_driver_download_info()
+        else:
+            self.select_browser_radio()
 
     def get_driver_from_folder(self): 
         # 打开已经下载好的Edge驱动  
@@ -492,7 +510,7 @@ class App:
             for rb in self.browser_radio_buttons:
                 rb.config(state=tk.DISABLED)
 
-    def start_driver_installation_threading(self):
+    def start_driver_installation_Prepare(self):
         if self.is_installing_driver:
             self.show_driver_download_info()
             return
@@ -501,20 +519,31 @@ class App:
         # 禁用浏览器选择按钮（如果它们之前没有被禁用的话）
         for rb in self.browser_radio_buttons:
             rb.config(state=tk.DISABLED)
-        # 创建一个线程来安装驱动
-        thread = threading.Thread(target=self.get_driver_automatically)
+        # 在主线程中请求用户是否指定驱动版本
+        self.driver_version = simpledialog.askstring("Driver Version", "指定一个版本或者直接点击按钮下载最新版本:")
+        self.root.after(0, self.start_driver_installation_threading)
+
+    def start_driver_installation_threading(self):
+        # 创建一个守护线程来安装驱动
+        thread = threading.Thread(target=self.get_driver_automatically, daemon=True)
         thread.start()
 
     def get_driver_automatically(self): 
-        # 自动获取Edge驱动  
+        # 自动下载Edge驱动  
         try:  
             selected_browser = self.browser_type_var.get()
             if selected_browser == 1:  # Edge
                 from webdriver_manager.microsoft import EdgeChromiumDriverManager
-                driver_path = EdgeChromiumDriverManager().install() 
+                if self.driver_version:
+                    driver_path = EdgeChromiumDriverManager(version=self.driver_version).install() 
+                else:
+                    driver_path = EdgeChromiumDriverManager().install()    
             else:   #Chrome
                 from webdriver_manager.chrome import ChromeDriverManager
-                driver_path = ChromeDriverManager().install()
+                if self.driver_version:
+                    driver_path = ChromeDriverManager(version=self.driver_version).install()
+                else:
+                    driver_path = ChromeDriverManager().install()
             # 由于Tkinter不是线程安全的，我们需要确保更新UI的操作在主线程中执行
             self.root.after(0, self.show_success_message, driver_path)
         except Exception as e:  
@@ -524,17 +553,25 @@ class App:
             self.is_installing_driver = False
 
     def show_success_message(self, driver_path):
+        if self.driver_info_dialog is not None:
+            self.driver_info_dialog_close()
         messagebox.showinfo("Driver Info - Installation Status(success)", f"Driver installed successfully!\nPath: {driver_path}")
         self.driver_path_var.set(driver_path) 
  
     def show_error_message(self, error_message):
+        if self.driver_info_dialog is not None:
+            self.driver_info_dialog_close()
         import webbrowser
         error_window = tk.Toplevel(self.root)
         error_window.title("Driver Info - Installation Status(Error)")
         
         first_frame_error_prompt = tk.Frame(error_window)
         first_frame_error_prompt.pack(pady=20)
-        error_info_label = tk.Label(first_frame_error_prompt, text=f"Failed to install driver(网络错误或权限不足,请检查重试或执行File->Get new driver->open):", font=font.Font(weight='bold'))
+        if self.driver_version:
+            error_text = "Failed to install driver(网络错误或驱动版本格式不对,请检查重试或自行下载后执行File->Get new driver->open):"
+        else:
+            error_text = "Failed to install driver(网络错误或权限不足,请检查重试或自行下载后执行File->Get new driver->open):"
+        error_info_label = tk.Label(first_frame_error_prompt, text=error_text, font=font.Font(weight='bold'))
         error_info_label.pack(side="left", padx=5)
         error_info = tk.Label(first_frame_error_prompt, text=error_message, fg="red")
         error_info.pack(side="left")
@@ -590,32 +627,45 @@ class App:
             print(f"Failed to load image: {img_error}")
     
     def show_driver_download_info(self):
-        driver_info_dialog = tk.Toplevel(self.root)
-        driver_info_dialog.title("Driver Info - Installation Status(ongoing)")
+        if self.driver_info_dialog is not None:
+            self.driver_info_dialog.focus_set()
+            return
+        else:
+            self.driver_info_dialog = tk.Toplevel(self.root)
+            self.driver_info_dialog.title("Driver Info - Installation Status(ongoing)")
 
-        # 显示文本信息
-        text = (f"The driver you requested is being downloaded automatically. Please wait~\n"
-                f"The driver you are currently using is:    {self.driver_path_var.get()}\n"
-                f"After the driver download is completed, you will be prompted as follows:")
-        text_label = tk.Label(driver_info_dialog, text=text)
-        text_label.pack()
+            # 显示文本信息
+            text1 = "The driver you requested is being downloaded automatically. Please wait~"
+            text2 = f"The driver you are currently using is:    {self.driver_path_var.get()}"
+            text3 = "After the driver download is completed, you will be prompted as follows:"
+            text4 = "(Similarly, if the download fails, there will also be a prompt.)"
+            text1_label = tk.Label(self.driver_info_dialog, text=text1)
+            text1_label.pack(pady=5)
+            text2_label = tk.Label(self.driver_info_dialog, text=text2)
+            text2_label.pack(pady=5)
+            text3_label = tk.Label(self.driver_info_dialog, text=text3)
+            text3_label.pack(pady=5)
+            text4_label = tk.Label(self.driver_info_dialog, text=text4)
+            text4_label.pack(pady=5)
 
-        driver_installing_image_path = get_path("assets/driver_install_success.png")
-        driver_installing_image = Image.open(driver_installing_image_path)
-        driver_installing_image_scale_factor = 0.7
-        driver_installing_image = driver_installing_image.resize(
-            (int(driver_installing_image.width * driver_installing_image_scale_factor), 
-             int(driver_installing_image.height * driver_installing_image_scale_factor)),
-             Image.LANCZOS
-        )
-        driver_installing_photo = ImageTk.PhotoImage(driver_installing_image)
-        img_label = tk.Label(driver_info_dialog, image=driver_installing_photo)
-        img_label.image = driver_installing_photo  # 保持对图片的引用，防止被垃圾回收
-        img_label.pack()
- 
-        # 添加一个关闭按钮（可选）
-        close_button = tk.Button(driver_info_dialog, text="Close", command=driver_info_dialog.destroy)
-        close_button.pack()
+            driver_installing_image_path = get_path("assets/driver_install_success.png")
+            driver_installing_image = Image.open(driver_installing_image_path)
+            driver_installing_image_scale_factor = 0.7
+            driver_installing_image = driver_installing_image.resize(
+                (int(driver_installing_image.width * driver_installing_image_scale_factor), 
+                int(driver_installing_image.height * driver_installing_image_scale_factor)),
+                Image.LANCZOS
+            )
+            driver_installing_photo = ImageTk.PhotoImage(driver_installing_image)
+            img_label = tk.Label(self.driver_info_dialog, image=driver_installing_photo)
+            img_label.image = driver_installing_photo  # 保持对图片的引用，防止被垃圾回收
+            img_label.pack()
+
+            self.driver_info_dialog.protocol("WM_DELETE_WINDOW", self.driver_info_dialog_close)
+
+    def driver_info_dialog_close(self):
+        self.driver_info_dialog.destroy()
+        self.driver_info_dialog = None
 
     def select_browser_radio(self):
         # 启用浏览器选择按钮
