@@ -256,7 +256,7 @@ class App:
             if j == 1:
                 rb.grid(row=0, column=j, sticky='w', padx=50)
             else:
-                rb.grid(row=0, column=j-1, sticky='w', padx=200) 
+                rb.grid(row=0, column=j-1, sticky='w', padx=300) 
             self.browser_radio_buttons.append(rb)
 
         # 初始驱动路径
@@ -399,8 +399,19 @@ class App:
             self.root.quit()
             self.root.destroy()
 
-    #  将所有输入框的信息展示成所需最精简的信息
+    #  所有资源和信息显示为需要的信息
     def click_confirm_button_to_change_entry_info(self):
+        # 将所有的输入框锁定不可编辑
+        for entry in enumerate(self.entries, start=1):
+            entry[1].config(state='readonly')
+        # 将浏览器类型和测试项锁定
+        all_radio_buttons = self.browser_radio_buttons + self.test_item_radio_buttons
+        for rb in all_radio_buttons:
+            rb.config(state=tk.DISABLED)
+        # 测试项锁定的时候不再可使用tab选择
+        self.test_item_radio_is_enabled = False
+        # 所有准备已就绪
+        self.set_input_ready_event(True)
         for i, entry in enumerate(self.entries, start=1):
             if not entry.get():
                 self.entries_vars_current_value[i] = self.entries_vars_current_value[i]
@@ -427,24 +438,13 @@ class App:
                 else:
                     self.entries_vars_current_value[i] = entry.get()
 
-    # 所有资源和信息确认按钮，启动测试
+    # 所有资源和信息确认按钮，启动测试确认件
     def handle_confirm_button(self, event):
         # 提示正在下载驱动，还没有使用自动下载的驱动
         if self.is_installing_driver:
             self.show_driver_download_info()
         # 执行输入框的信息提炼函数
         self.click_confirm_button_to_change_entry_info()
-        # 将所有的输入框锁定不可编辑
-        for entry in enumerate(self.entries, start=1):
-            entry[1].config(state='readonly')
-        # 将浏览器类型和测试项锁定
-        all_radio_buttons = self.browser_radio_buttons + self.test_item_radio_buttons
-        for rb in all_radio_buttons:
-            rb.config(state=tk.DISABLED)
-        # 测试项锁定的时候不再可使用tab选择
-        self.test_item_radio_is_enabled = False
-        # 所有准备已就绪
-        self.set_input_ready_event(True)
 
     # 所有资源和信息恢复默认
     def click_cancel_button_to_restore(self):
@@ -1643,6 +1643,7 @@ def lalala(app):
                 app.root.after(0, lambda: app.print_colored(f"Error: {e}\n", "RED"))
                 app.root.after(0, lambda: app.print_colored("Browser driver was not started due to an error or driver missing/mismatched.\n", "RED"))
                 app.root.after(0, lambda: print(""))
+                app.click_cancel_button_to_restore()
 
 if __name__ == "__main__":  
     main()
