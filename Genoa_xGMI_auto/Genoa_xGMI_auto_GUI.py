@@ -618,7 +618,7 @@ class App:
         #error_info = tk.Label(first_frame_error_prompt, text=error_message, fg="red")
         #error_info.pack(side="left", padx=5, pady=2)
         # 使用Text小部件和滚动条显示长错误信息
-        error_text_widget = tk.Text(first_frame_error_prompt, wrap="word", height=10, fg="red", font=("Arial", 10))
+        error_text_widget = tk.Text(first_frame_error_prompt, wrap="word", height=3, fg="red", font=("Arial", 10))
         error_text_widget.pack(side="left", fill="both", expand=True, padx=5)
         # 插入错误信息并禁用编辑
         error_text_widget.insert("1.0", error_message)
