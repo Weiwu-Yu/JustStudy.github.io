@@ -377,6 +377,10 @@ class App:
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         # 主循环和后台线程并行，需要使用threading.Event事件对象机制来同步管理事件状态--在后台线程中实时安全地访问和检查事件的值
         self.input_ready_event = threading.Event()
+        # 标志变量，指示驱动是否可用
+        self.driver_is_good = False
+        # 标志变量，指示驱动是否已完全启动
+        self.driver_fully_booted_is_ok = False
 
     def set_input_ready_event(self, value):
         self.input_ready_event.set() if value else self.input_ready_event.clear()
@@ -395,7 +399,7 @@ class App:
             self.root.quit()
             self.root.destroy()
 
-    # 将所有输入框的信息展示成所需最精简的信息
+    #  将所有输入框的信息展示成所需最精简的信息
     def click_confirm_button_to_change_entry_info(self):
         for i, entry in enumerate(self.entries, start=1):
             if not entry.get():
@@ -435,8 +439,12 @@ class App:
         self.test_item_radio_is_enabled = True
         # 所有准备未就绪
         self.set_input_ready_event(False)
+        # 驱动是否可用的状态标志恢复默认
+        self.driver_is_good = False
+        # 驱动是否完全启动的状态标志恢复默认
+        self.driver_fully_booted_is_ok = False
         
-    # 所有资源和信息确认按钮，准备测试
+    # 所有资源和信息确认按钮，启动测试
     def handle_confirm_button(self, event):
         # 提示正在下载驱动，还没有使用自动下载的驱动
         if self.is_installing_driver:
@@ -457,11 +465,17 @@ class App:
 
     # 所有资源和信息取消按钮，重新输入信息
     def handle_cancel_button(self, event):
-        if self.input_ready_event.is_set():
-            if messagebox.askokcancel("Note", f"Cancelling will close the currently running web.\n Are you sure you want to cancel?"):
-                self.click_cancel_button_to_restore()
+        if self.input_ready_event.is_set() and self.driver_is_good:
+            if self.driver_fully_booted_is_ok:
+                if messagebox.askokcancel("Note", f"Cancelling will close the currently running web.\n (If you have closed the browser yourself, you can ignore this message.)\n Are you sure you want to cancel?"):
+                    self.print_colored("The previous driver has been closed, Please click confirm to retest\n", "YELLOW")
+                    print("")
+                    self.click_cancel_button_to_restore()
+            else:
+                messagebox.showinfo("Driver Info - Startup Status(ongoing)", f"The browser is starting up. Please try again later. \n"
+                                    "After the startup is complete, you can see the words 'Successfully initialize of WebDriver' on the right.")
         else:
-            self.click_cancel_button_to_restore()
+            self.click_cancel_button_to_restore()   
 
     def handle_enter(self, event):
         self.entries = [self.username_entry, self.password_entry, self.runtimes_entry, self.estimated_time_entry]
@@ -490,7 +504,7 @@ class App:
                 text = text + self.user_input_display + "\n"
             sys.stdout.write(text, tag)
             return self.user_input_display
-        
+
     def create_menu(self):  
         # 创建菜单栏  
         menu_bar = tk.Menu(self.root)  
@@ -521,16 +535,19 @@ class App:
         if self.input_ready_event.is_set():
             print("您已锁定测试选项,请先单击“cancel”,然后选择")
             return
-        # 打开已经下载好的Edge驱动  
-        file_path = filedialog.askopenfilename(filetypes=[("Executable files", "*.exe")])  
-        if file_path:  
-            self.driver_path_var.set(file_path)
-            if "chrome" in file_path.split("\\")[-1].lower():
-                self.browser_type_var.set(2) 
-            else:
-                self.browser_type_var.set(1)
-            for rb in self.browser_radio_buttons:
-                rb.config(state=tk.DISABLED)
+        if self.is_installing_driver:
+            self.show_driver_download_info()
+        else:
+            # 打开已经下载好的Edge驱动  
+            file_path = filedialog.askopenfilename(filetypes=[("Executable files", "*.exe")])  
+            if file_path:  
+                self.driver_path_var.set(file_path)
+                if "chrome" in file_path.split("\\")[-1].lower():
+                    self.browser_type_var.set(2) 
+                else:
+                    self.browser_type_var.set(1)
+                for rb in self.browser_radio_buttons:
+                    rb.config(state=tk.DISABLED)
 
     def start_driver_installation_Prepare(self):
         if self.input_ready_event.is_set():
@@ -597,9 +614,19 @@ class App:
         else:
             error_text = "Failed to install driver(网络错误或权限不足,请检查重试或自行下载后执行File->Get new driver->open):"
         error_info_label = tk.Label(first_frame_error_prompt, text=error_text, font=font.Font(weight='bold'))
-        error_info_label.pack(side="left", padx=5)
-        error_info = tk.Label(first_frame_error_prompt, text=error_message, fg="red")
-        error_info.pack(side="left")
+        error_info_label.pack(side="top", padx=5)
+        #error_info = tk.Label(first_frame_error_prompt, text=error_message, fg="red")
+        #error_info.pack(side="left", padx=5, pady=2)
+        # 使用Text小部件和滚动条显示长错误信息
+        error_text_widget = tk.Text(first_frame_error_prompt, wrap="word", height=10, fg="red", font=("Arial", 10))
+        error_text_widget.pack(side="left", fill="both", expand=True, padx=5)
+        # 插入错误信息并禁用编辑
+        error_text_widget.insert("1.0", error_message)
+        error_text_widget.config(state="disabled")
+        # 添加滚动条
+        scroll_bar = tk.Scrollbar(first_frame_error_prompt, command=error_text_widget.yview)
+        scroll_bar.pack(side="right", fill="y")
+        error_text_widget.config(yscrollcommand=scroll_bar.set)
 
         second_frame_download_driver = tk.Frame(error_window)
         second_frame_download_driver.pack(pady=10)
@@ -698,11 +725,28 @@ class App:
             rb.config(state=tk.NORMAL)
         selected_browser = self.browser_type_var.get()
         if selected_browser == 1:  # Edge
-            get_edge_driver_path = get_path("assets//edgedriver_win64/msedgedriver.exe")
+            get_edge_driver_path = get_path("assets/msedgedriver.exe")
             self.driver_path_var.set(f"Edge默认驱动:    {get_edge_driver_path}") 
         else: # Chrome
-            get_Google_driver_path = get_path("assets//edgedriver_win64/msedgedriver.exe")
-            self.driver_path_var.set(f"Google默认驱动:  {get_Google_driver_path}") 
+            get_Google_driver_path = get_path("assets/msedgedriver1.exe")
+            self.driver_path_var.set(f"Google默认驱动:  {get_Google_driver_path}")
+
+    def get_clean_driver_path(self):
+        """
+        返回当前浏览器的驱动路径。若文件不存在，抛出异常提示
+        """
+        # 获取清理前的路径
+        raw_path = self.driver_path_var.get()
+        # 去除前缀信息和多余空格
+        if "Edge默认驱动:" in raw_path:
+            raw_path = raw_path.replace("Edge默认驱动:", "").strip()
+        elif "Google默认驱动:" in raw_path:
+            raw_path = raw_path.replace("Google默认驱动:", "").strip()
+        if not os.path.exists(raw_path):
+            self.driver_is_good = False
+            raise FileNotFoundError(f"\nDriver not found at path: {raw_path}")
+        self.driver_is_good = True
+        return raw_path
 
     def select_test_item_radio_ok(self, e):
         for rb in self.test_item_radio_buttons:
@@ -862,7 +906,6 @@ class App:
         self.input_popup.wait_window()
         return user_input.get()
 
-
 class MyError(Exception):       
     pass
 class ACPW_Exception(MyError):
@@ -883,13 +926,6 @@ def load_auto_modules(app):
     所有次数的解锁结果，最后停留在交互界面
     """
 
-    #原Go-pi中处理linux系统导入的模块
-    '''
-    if _pt.system() == 'Linux':
-        import linux_req
-        linux_req.linux_kysy_wa()
-    '''
-
     asd = globals()
     import pysy
     asd.update(locals())
@@ -900,6 +936,7 @@ def load_auto_modules(app):
     console.runcode(r'exec(open(r"{}").read());import Kysy;import sys;sys.ps1 = "\033[1;33m>>>\033[0m "'.format(path))
     
     def browser_driver_setup(app):
+        driver = None
         if app.browser_type_var.get() == 1:
             edge_options = webdriver.EdgeOptions()
             options = edge_options
@@ -909,27 +946,45 @@ def load_auto_modules(app):
 
         options.add_argument('start-maximized')
         options.add_experimental_option('excludeSwitches', ['enable-logging'])
-        options.add_experimental_option('detach', True)  # 使浏览器在脚本执行完成后保持打开状态，参考网址3种方法 https://www.cnblogs.com/muxiaomu/p/16669022.html(关闭原因：对应chrome浏览器厂家提供的浏览器源生驱动文件（chromedriver.exe）自身逻辑设置引起的，方法运行完会自动关闭回收方法中定义的局部变量dr)
+        # 使浏览器在脚本执行完成后保持打开状态，参考网址3种方法 https://www.cnblogs.com/muxiaomu/p/16669022.html(关闭原因：对应chrome浏览器厂家提供的浏览器源生驱动文件（chromedriver.exe）自身逻辑设置引起的，方法运行完会自动关闭回收方法中定义的局部变量dr)
+        options.add_experimental_option('detach', True)  
         prefs = {
             "download.default_directory": get_path("assets"),
             "download.prompt_for_download": False
         }
         options.add_experimental_option("prefs", prefs)
 
-        if app.browser_type_var.get() == 1:
-            driver_get_abs_path = get_path("assets/edgedriver_win64/msedgedriver.exe")  # 指定浏览器驱动路径，对于特定版本selenium可能内置驱动或者浏览器版本提供内置的自动化支持就不需要驱动
-            driver_path = EdgeService(driver_get_abs_path)
-            driver_path.creation_flags = CREATE_NO_WINDOW  # Windows特定的标志，用于当启动EdgeDriver进程时，不显示任何窗口
-            driver = webdriver.Edge(service=driver_path, options=options)
-        else:
-            driver_get_abs_path = get_path("assets/edgedriver_win64/msedgedriver.exe")  # 指定浏览器驱动路径，对于特定版本selenium可能内置驱动或者浏览器版本提供内置的自动化支持就不需要驱动
-            driver_path = ChromeService(driver_get_abs_path)
-            driver_path.creation_flags = CREATE_NO_WINDOW  # Windows特定的标志，用于当启动EdgeDriver进程时，不显示任何窗口
-            driver = webdriver.Chrome(service=driver_path, options=options)  
-            
-        wait = WebDriverWait(driver, 40)
-        app.print_colored(f"\nSuccessfully initialize of WebDriver \n")
-        return (driver,wait)
+        while True:
+            # 检查Event对象的内部标志是否被设置为True
+            if not app.input_ready_event.is_set():
+                # 如果有正在运行的 driver 且 input_ready_event 为 False，则关闭所有打开的浏览器
+                if driver is not None:
+                    driver.quit()
+                    driver = None  # 重置 driver 引用
+                # 等待input_ready_event变为True
+                app.input_ready_event.wait()
+                try:
+                    app.root.after(0, lambda: print("The browser is opening, please wait a few seconds..."))
+                    if app.browser_type_var.get() == 1:
+                        # 指定浏览器驱动路径，对于特定版本selenium可能内置驱动或者浏览器版本提供内置的自动化支持就不需要驱动
+                        driver_path = EdgeService(app.get_clean_driver_path())
+                        # Windows特定的标志，用于当启动EdgeDriver进程时，不显示任何窗口
+                        driver_path.creation_flags = CREATE_NO_WINDOW  
+                        driver = webdriver.Edge(service=driver_path, options=options)
+                    else:
+                        driver_path = ChromeService(app.get_clean_driver_path())
+                        driver_path.creation_flags = CREATE_NO_WINDOW 
+                        driver = webdriver.Chrome(service=driver_path, options=options)  
+
+                    wait = WebDriverWait(driver, 40)
+                    app.root.after(0, lambda: print("Successfully initialize of WebDriver"))
+                    app.driver_fully_booted_is_ok = True
+                    return (driver,wait)
+                except Exception as e:
+                    # 主线程中打印详细的错误信息
+                    app.root.after(0, lambda: app.print_colored(f"Error: {e}\n", "RED"))
+                    app.root.after(0, lambda: app.print_colored("Browser driver was not started due to an error or missing file.\n", "RED"))
+                    app.root.after(0, lambda: print(""))
     
     def input_demand(app):
         while True:
@@ -1559,22 +1614,34 @@ def lalala(app):
     while True:
         # 检查Event对象的内部标志是否被设置为True
         if not app.input_ready_event.is_set():
+            # 如果有正在运行的 driver 且 input_ready_event 为 False，则关闭所有打开的浏览器
+            if driver is not None:
+                driver.quit()
+                driver = None  # 重置 driver 引用
             # 等待input_ready_event变为True
             app.input_ready_event.wait()
-            if app.browser_type_var.get() == 1:
-                options = webdriver.EdgeOptions()
-                options.add_experimental_option('detach', True)  #不自动关闭浏览器
-                driver_get_abs_path = r"assets/edgedriver_win64/msedgedriver.exe"
-                driver_path = EdgeService(driver_get_abs_path)
-                driver=webdriver.Edge(service=driver_path,options=options)
-            else:
-                options = webdriver.ChromeOptions()
-                options.add_experimental_option('detach', True)  #不自动关闭浏览器
-                driver_get_abs_path = r"C:\Users\29402\.wdm\drivers\chromedriver\win64\130.0.6723.116\chromedriver-win32/chromedriver.exe"
-                driver_path = ChromeService(driver_get_abs_path)
-                driver=webdriver.Chrome(service=driver_path,options=options)
 
-            driver.get('https://www.baidu.com')
+            try:
+                app.root.after(0, lambda: print("The browser is opening, please wait a few seconds..."))
+                # 根据选择的浏览器类型初始化对应的选项和驱动路径
+                if app.browser_type_var.get() == 1:
+                    options = webdriver.EdgeOptions()
+                    options.add_experimental_option('detach', True)  #不自动关闭浏览器
+                    driver_path = EdgeService(app.get_clean_driver_path())
+                    driver=webdriver.Edge(service=driver_path,options=options)
+                else:
+                    options = webdriver.ChromeOptions()
+                    options.add_experimental_option('detach', True)  #不自动关闭浏览器
+                    driver_path = ChromeService(app.get_clean_driver_path())
+                    driver=webdriver.Chrome(service=driver_path,options=options)
+                app.root.after(0, lambda: print("Successfully initialize of WebDriver"))
+                app.driver_fully_booted_is_ok = True
+                driver.get('https://www.baidu.com')
+            except Exception as e:
+                # 主线程中打印详细的错误信息
+                app.root.after(0, lambda: app.print_colored(f"Error: {e}\n", "RED"))
+                app.root.after(0, lambda: app.print_colored("Browser driver was not started due to an error or missing file.\n", "RED"))
+                app.root.after(0, lambda: print(""))
 
 if __name__ == "__main__":  
     main()
