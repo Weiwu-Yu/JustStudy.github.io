@@ -63,7 +63,7 @@ import numpy as np
 from subprocess import CREATE_NO_WINDOW
 import threading  
 
-# 直接运行与打包成exe的文件路径不一样，以获取需要用到的ico和driver
+# 直接运行与打包成exe的文件路径不一样，以获取需要用到的资源
 def get_path(relative_path):
     try:
         base_path = sys._MEIPASS
@@ -274,7 +274,7 @@ class App:
         self.test_item_label = tk.Label(frame_left, text="xGMI测试项: ")
         self.test_item_label.grid(row=4, column=0, sticky='w', padx=5)
         self.test_item_var = tk.IntVar(value=1)
-        self.is_radio_enabled = True
+        self.test_item_radio_is_enabled = True
         self.entries_vars_current_value.append(self.test_item_var.get())
         self.entries_vars_default_value.append(self.test_item_var.get())
         self.test_items = {  
@@ -284,13 +284,13 @@ class App:
             4: 'Margin Search(BER9)',  
             5: 'Margin Search(BER10)'  
         }
-        self.radio_buttons = []
+        self.test_item_radio_buttons = []
         for i, (key, value) in enumerate(self.test_items.items(), start=1):  
             rb = tk.Radiobutton(frame_left, text=value, variable=self.test_item_var, value=key, command=self.update_estimated_time_entry)
             rb.grid(row=i+1, column=1, sticky='w', padx=5)
-            rb.bind("<Return>", self.select_radio_ok)
-            rb.bind("<Tab>", self.select_radio_tab)
-            self.radio_buttons.append(rb)
+            rb.bind("<Return>", self.select_test_item_radio_ok)
+            rb.bind("<Tab>", self.select_test_item_radio_tab)
+            self.test_item_radio_buttons.append(rb)
             
         self.username_var = tk.StringVar()
         self.username_var.set("Please enter your NTID username")
@@ -354,6 +354,9 @@ class App:
         self.estimated_time_entry.bind("<FocusOut>", self.on_estimated_time_focus_out)
         self.estimated_time_entry.bind("<Return>", self.handle_enter)
         
+        self.entries = [self.username_entry, self.password_entry, self.runtimes_entry, self.estimated_time_entry]
+        self.entries_var = [self.username_var, self.password_var, self.runtimes_var, self.estimated_time_var]
+        
         self.button_confirm = HoverButton(frame_left, text="confirm", color = "lightgray", command=self.handle_confirm_button)
         self.button_confirm.grid(row=11, column=1, sticky='w', padx=20, pady=20)
         self.button_cancel = HoverButton(frame_left, text="cancel", color = "lightgray", command=self.handle_cancel_button)
@@ -369,15 +372,22 @@ class App:
         sys.stdout = RedirectedIO(self.text_area)
         sys.stderr = RedirectedIO(self.text_area)
 
-        self.input_ready =  False
         self.window_closed = False
         self.input_popup = None
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        # 主循环和后台线程并行，需要使用threading.Event事件对象机制来同步管理事件状态--在后台线程中实时安全地访问和检查事件的值
+        self.input_ready_event = threading.Event()
 
+    def set_input_ready_event(self, value):
+        self.input_ready_event.set() if value else self.input_ready_event.clear()
+ 
+    # 主程序关闭释放资源和恢复变量值
     def on_closing(self):
-        if self.is_installing_driver:
-            self.is_installing_driver = False
         if messagebox.askokcancel("Quit", "APP is closing...Do you want to quit?"):
+            # 正在下载driver的提示变量恢复默认值
+            if self.is_installing_driver:
+                self.is_installing_driver = False
+            # 将用以替换python的input函数的输入窗口关闭
             if self.input_popup is not None and self.input_popup.winfo_exists():
                 self.input_popup.destroy()
             sys.stdout.close()
@@ -385,9 +395,8 @@ class App:
             self.root.quit()
             self.root.destroy()
 
-    def click_button_to_change_entry_info(self):
-        self.entries = [self.username_entry, self.password_entry, self.runtimes_entry, self.estimated_time_entry]
-        self.entries_var = [self.username_var, self.password_var, self.runtimes_var, self.estimated_time_var]
+    # 将所有输入框的信息展示成所需最精简的信息
+    def click_confirm_button_to_change_entry_info(self):
         for i, entry in enumerate(self.entries, start=1):
             if not entry.get():
                 self.entries_vars_current_value[i] = self.entries_vars_current_value[i]
@@ -414,28 +423,45 @@ class App:
                 else:
                     self.entries_vars_current_value[i] = entry.get()
 
+    def click_cancel_button_to_restore(self):
+        # 将所有的输入框恢复可编辑
+        for entry in enumerate(self.entries, start=1):
+            entry[1].config(state='normal')
+        # 浏览器类型和测试项可重新选择
+        all_radio_buttons = self.browser_radio_buttons + self.test_item_radio_buttons
+        for rb in all_radio_buttons:
+            rb.config(state=tk.NORMAL)
+        # 测试项可使用tab选择的变量
+        self.test_item_radio_is_enabled = True
+        # 所有准备未就绪
+        self.set_input_ready_event(False)
+        
+    # 所有资源和信息确认按钮，准备测试
     def handle_confirm_button(self, event):
+        # 提示正在下载驱动，还没有使用自动下载的驱动
         if self.is_installing_driver:
             self.show_driver_download_info()
-        self.click_button_to_change_entry_info()
+        # 执行输入框的信息提炼函数
+        self.click_confirm_button_to_change_entry_info()
+        # 将所有的输入框锁定不可编辑
         for entry in enumerate(self.entries, start=1):
-            #if event.widget.itemcget(event.widget.text_id, "text") == "confirm":
-            entry.config(state='readonly')
-            for rb in self.radio_buttons:
-                rb.config(state=tk.DISABLED)
-                self.is_radio_enabled = False
-            self.input_ready = True
+            entry[1].config(state='readonly')
+        # 将浏览器类型和测试项锁定
+        all_radio_buttons = self.browser_radio_buttons + self.test_item_radio_buttons
+        for rb in all_radio_buttons:
+            rb.config(state=tk.DISABLED)
+        # 测试项锁定的时候不再可使用tab选择
+        self.test_item_radio_is_enabled = False
+        # 所有准备已就绪
+        self.set_input_ready_event(True)
 
+    # 所有资源和信息取消按钮，重新输入信息
     def handle_cancel_button(self, event):
-        if self.is_installing_driver:
-            self.show_driver_download_info()
-        self.click_button_to_change_entry_info()
-        for entry in enumerate(self.entries, start=1):
-            entry.config(state='normal')
-            for rb in self.radio_buttons:
-                rb.config(state=tk.NORMAL)
-                self.is_radio_enabled = True
-            self.input_ready = False
+        if self.input_ready_event.is_set():
+            if messagebox.askokcancel("Note", f"Cancelling will close the currently running web.\n Are you sure you want to cancel?"):
+                self.click_cancel_button_to_restore()
+        else:
+            self.click_cancel_button_to_restore()
 
     def handle_enter(self, event):
         self.entries = [self.username_entry, self.password_entry, self.runtimes_entry, self.estimated_time_entry]
@@ -445,18 +471,8 @@ class App:
         else:
             self.button_confirm.focus_set()
 
-    def wait_for_input(self, prompt, tag=None):
-        self.input_ready = True
-        self.print_colored(prompt, "BOLD")
-        self.input_ready = False
-        while not self.input_ready:
-            if self.window_closed:
-                #raise SystemExit("closed, exiting the program")
-                sys.exit()
-            self.root.update()
-
     def print_colored(self, text, tag=None, i=999):
-        while not self.input_ready:
+        while not self.input_ready_event.is_set():
             if self.window_closed:
                 sys.exit()
             self.root.update()
@@ -493,12 +509,18 @@ class App:
         driver_menu.add_command(label="Install", command=self.start_driver_installation_Prepare) 
 
     def use_default_driver(self):
+        if self.input_ready_event.is_set():
+            print("您已锁定测试选项,请先单击“cancel”,然后选择")
+            return
         if self.is_installing_driver:
             self.show_driver_download_info()
         else:
             self.select_browser_radio()
 
     def get_driver_from_folder(self): 
+        if self.input_ready_event.is_set():
+            print("您已锁定测试选项,请先单击“cancel”,然后选择")
+            return
         # 打开已经下载好的Edge驱动  
         file_path = filedialog.askopenfilename(filetypes=[("Executable files", "*.exe")])  
         if file_path:  
@@ -511,10 +533,13 @@ class App:
                 rb.config(state=tk.DISABLED)
 
     def start_driver_installation_Prepare(self):
+        if self.input_ready_event.is_set():
+            print("您已锁定测试选项,请先单击“cancel”,然后选择")
+            return
         if self.is_installing_driver:
             self.show_driver_download_info()
             return
-        # 在UI中显示下载状态，防止在下载过程中操作错误
+        # 显示下载状态，防止在下载过程中操作错误
         self.is_installing_driver = True
         # 禁用浏览器选择按钮（如果它们之前没有被禁用的话）
         for rb in self.browser_radio_buttons:
@@ -679,13 +704,13 @@ class App:
             get_Google_driver_path = get_path("assets//edgedriver_win64/msedgedriver.exe")
             self.driver_path_var.set(f"Google默认驱动:  {get_Google_driver_path}") 
 
-    def select_radio_ok(self, e):
-        for rb in self.radio_buttons:
+    def select_test_item_radio_ok(self, e):
+        for rb in self.test_item_radio_buttons:
             rb.config(state=tk.DISABLED)
-        self.is_radio_enabled = False
+        self.test_item_radio_is_enabled = False
 
-    def select_radio_tab(self, e):
-        if self.is_radio_enabled:
+    def select_test_item_radio_tab(self, e):
+        if self.test_item_radio_is_enabled:
             current_value = self.test_item_var.get()
             next_value = current_value + 1 if current_value < len(self.test_items) else 5
             self.test_item_var.set(next_value)
@@ -745,7 +770,7 @@ class App:
         self.entries_vars_current_value[4] = self.default_time
         self.entries_vars_default_value[0] = self.test_item_var.get()
         self.entries_vars_default_value[4] = self.default_time
-        self.radio_buttons[self.test_item_var.get()-1].focus_set()
+        self.test_item_radio_buttons[self.test_item_var.get()-1].focus_set()
 
     def on_estimated_time_focus_in(self, event):  
         if self.estimated_time_var.get() and "Default one estimated time for test" in self.estimated_time_var.get():
@@ -774,14 +799,14 @@ class App:
             self.image_label = tk.Label(self.hover_window, image=self.photo)
             self.image_label.grid()
         self.default_font.config(weight="bold")
-        self.estimated_time_label.config(font=self.default_font)        
+        self.estimated_time_label.config(fg="blue", cursor="hand2")        
 
     def label_on_leave(self, event):
         if self.hover_window is not None:
             self.hover_window.destroy()
             self.hover_window = None
         self.default_font.config(weight="normal")
-        self.estimated_time_label.config(font=self.default_font)
+        self.estimated_time_label.config(fg="black")
 
     def get_user_input(self, prompt):
         self.input_popup = tk.Toplevel(self.root)
@@ -837,10 +862,6 @@ class App:
         self.input_popup.wait_window()
         return user_input.get()
 
-    '''
-    def label_on_click(self, event):
-        self.is_image_shown = not self.is_image_shown
-    '''
 
 class MyError(Exception):       
     pass
@@ -909,10 +930,10 @@ def load_auto_modules(app):
         wait = WebDriverWait(driver, 40)
         app.print_colored(f"\nSuccessfully initialize of WebDriver \n")
         return (driver,wait)
-
+    
     def input_demand(app):
         while True:
-            app.wait_for_input(f"欢迎使用Genoa xGMI_auto tool \n")
+            app.print_colored(f"欢迎使用Genoa xGMI_auto tool \n", "BOLD")
             break
 
         while True:
@@ -926,7 +947,7 @@ def load_auto_modules(app):
                     app.print_colored(f"{key}: {value};\n")
                 item = app.print_colored("Test item to be run: ", i=0)
                 app.print_colored(f"You will run {app.test_items[item]} \n", "GREEN")
-                app.input_ready = True
+                app.input_ready_event(True)
 
                 sdu_username = app.print_colored(f"AMD AC - NTID username: ", i=1)
                 sdu_password = app.print_colored(f"AMD PW - Password for user {sdu_username}: ", i=2)
@@ -935,7 +956,7 @@ def load_auto_modules(app):
                     unlock(sdu_username,sdu_password)
                     result = is_locked()
                     app.print_colored(f"The account && password is correct \n", "GREEN")
-                    app.input_ready = True
+                    app.input_ready_event(True)
                 except:
                     raise ACPW_Exception
                 
@@ -947,7 +968,7 @@ def load_auto_modules(app):
                             num_times += char
                     num_times = int(num_times)
                     app.print_colored(f"You will run {num_times} times \n", "GREEN")
-                    app.input_ready = True
+                    app.input_ready_event(True)
                 except:
                     raise loop_Exception
 
@@ -955,47 +976,47 @@ def load_auto_modules(app):
                     one_time = app.print_colored(f"Approximately run one time(s): ", i=4)
                     if item == 1 and one_time < 3800:
                         app.print_colored(f"--Estimated time is not enough, at least 3800s for GSA Stress \n", "RED")
-                        for rb in app.radio_buttons:
+                        for rb in app.test_item_radio_buttons:
                             rb.config(state=tk.NORMAL)
-                            app.is_radio_enabled = True
+                            app.test_item_radio_is_enabled = True
                         for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
                             entry.config(state='normal') 
-                        app.input_ready = False
+                        app.input_ready_event(False)
                     elif item == 2 and one_time < 1500:
                         app.print_colored(f"--Estimated time is not enough, at least 1500s for 4-Point Parallel^2 Test \n", "RED")
-                        for rb in app.radio_buttons:
+                        for rb in app.test_item_radio_buttons:
                             rb.config(state=tk.NORMAL)
-                            app.is_radio_enabled = True
+                            app.test_item_radio_is_enabled = True
                         for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
                             entry.config(state='normal')
-                        app.input_ready = False
+                        app.input_ready_event(False)
                     elif item == 3 and one_time < 2300:
                         app.print_colored(f"--Estimated time is not enough, at least 2300s for 4-Point Test \n", "RED")
-                        for rb in app.radio_buttons:
+                        for rb in app.test_item_radio_buttons:
                             rb.config(state=tk.NORMAL)
-                            app.is_radio_enabled = True
+                            app.test_item_radio_is_enabled = True
                         for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
                             entry.config(state='normal')
-                        app.input_ready = False
+                        app.input_ready_event(False)
                     elif item == 4 and one_time < 2800:
                         app.print_colored(f"--Estimated time is not enough, at least 2800s for Margin Search(BER9) \n", "RED")
-                        for rb in app.radio_buttons:
+                        for rb in app.test_item_radio_buttons:
                             rb.config(state=tk.NORMAL)
-                            app.is_radio_enabled = True
+                            app.test_item_radio_is_enabled = True
                         for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
                             entry.config(state='normal')
-                        app.input_ready = False
+                        app.input_ready_event(False)
                     elif item == 5 and one_time < 4300:
                         app.print_colored(f"--Estimated time is not enough, at least 4300s for Margin Search(BER10) \n", "RED")
-                        for rb in app.radio_buttons:
+                        for rb in app.test_item_radio_buttons:
                             rb.config(state=tk.NORMAL)
-                            app.is_radio_enabled = True
+                            app.test_item_radio_is_enabled = True
                         for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
                             entry.config(state='normal')
-                        app.input_ready = False
+                        app.input_ready_event(False)
                     else:
                         app.print_colored(f"Your estimated time for test is {one_time}s.\n", "GREEN")
-                        app.input_ready = True
+                        app.input_ready_event(True)
                         return sdu_username, sdu_password, num_times, result, one_time, item
                         break
                 except:
@@ -1003,28 +1024,28 @@ def load_auto_modules(app):
                 
             except ACPW_Exception as e:
                 app.print_colored(f"{e}-- 账号密码错误或者网络已断开，检查后重试\n", "RED")
-                for rb in app.radio_buttons:
+                for rb in app.test_item_radio_buttons:
                     rb.config(state=tk.NORMAL)
-                    app.is_radio_enabled = True
+                    app.test_item_radio_is_enabled = True
                 for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
                     entry.config(state='normal')
-                app.input_ready = False
+                app.input_ready_event(False)
             except loop_Exception as e:
                 app.print_colored(f"{e}-- loop_number invalid, please input a number again \n", "RED")
-                for rb in app.radio_buttons:
+                for rb in app.test_item_radio_buttons:
                     rb.config(state=tk.NORMAL)
-                    app.is_radio_enabled = True
+                    app.test_item_radio_is_enabled = True
                 for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
                     entry.config(state='normal')
-                app.input_ready = False
+                app.input_ready_event(False)
             except Estimated_Exception as e:
                 app.print_colored(f"{e}-- Estimated time is not enough, please input again \n", "RED")
-                for rb in app.radio_buttons:
+                for rb in app.test_item_radio_buttons:
                     rb.config(state=tk.NORMAL)
-                    app.is_radio_enabled = True
+                    app.test_item_radio_is_enabled = True
                 for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
                     entry.config(state='normal')
-                app.input_ready = False
+                app.input_ready_event(False)
     
     def time_compute(app, time_num, total_sleep_time): 
         first_time = True
@@ -1524,31 +1545,36 @@ def main():
     root = tk.Tk()
     app = App(root)
 
+    # 替换python自带的终端命令行的input函数，用tk的UI组件输入实现同样的效果   
     builtins = globals()['__builtins__']
-    # original_input = builtins.input  # 保存原始的 input 函数
-    builtins.input = app.get_user_input  # 替换python自带的终端命令行的input函数，用tk的UI组件输入实现同样的效果   
-    # builtins.input = original_input  # 恢复原始的 input 函数
+    builtins.input = app.get_user_input  
 
     #threading.Thread(target=load_auto_modules, args=(app,)).start()  # 启动后台线程
-    threading.Thread(target=lalala, args=(app,)).start()  # 启动后台线程
+    threading.Thread(target=lalala, args=(app,), daemon=True).start()  # 启动后台线程
 
     root.mainloop()
 
 def lalala(app):
-    print("success", "GREEN")
-    if app.browser_type_var.get() == 2:
-        options = webdriver.EdgeOptions()
-        options.add_experimental_option('detach', True)  #不自动关闭浏览器
-        driver_get_abs_path = r"assets/edgedriver_win64/msedgedriver.exe"
-        driver_path = EdgeService(driver_get_abs_path)
-        driver=webdriver.Edge(service=driver_path,options=options)
-    else:
-        options = webdriver.ChromeOptions()
-        options.add_experimental_option('detach', True)  #不自动关闭浏览器
-        driver_get_abs_path = r"C:\Users\29402\.wdm\drivers\chromedriver\win64\130.0.6723.116\chromedriver-win32/chromedriver.exe"
-        driver_path = ChromeService(driver_get_abs_path)
-        driver=webdriver.Chrome(service=driver_path,options=options)
-    driver.get('https://www.baidu.com')
+    driver = None
+    while True:
+        # 检查Event对象的内部标志是否被设置为True
+        if not app.input_ready_event.is_set():
+            # 等待input_ready_event变为True
+            app.input_ready_event.wait()
+            if app.browser_type_var.get() == 1:
+                options = webdriver.EdgeOptions()
+                options.add_experimental_option('detach', True)  #不自动关闭浏览器
+                driver_get_abs_path = r"assets/edgedriver_win64/msedgedriver.exe"
+                driver_path = EdgeService(driver_get_abs_path)
+                driver=webdriver.Edge(service=driver_path,options=options)
+            else:
+                options = webdriver.ChromeOptions()
+                options.add_experimental_option('detach', True)  #不自动关闭浏览器
+                driver_get_abs_path = r"C:\Users\29402\.wdm\drivers\chromedriver\win64\130.0.6723.116\chromedriver-win32/chromedriver.exe"
+                driver_path = ChromeService(driver_get_abs_path)
+                driver=webdriver.Chrome(service=driver_path,options=options)
+
+            driver.get('https://www.baidu.com')
 
 if __name__ == "__main__":  
     main()
