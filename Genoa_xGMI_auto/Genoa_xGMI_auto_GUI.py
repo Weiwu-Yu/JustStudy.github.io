@@ -149,7 +149,7 @@ class RedirectedIO:
   
 class HoverButton(tk.Canvas):  
     def __init__(self, master=None, text='', radius=10, color=None, command=None, **kw):  
-        super().__init__(master, width=100, height=40, highlightthickness=0, **kw)
+        super().__init__(master, width=100, height=50, highlightthickness=0, **kw)
         self.text = text
         self.radius = radius
         self.color = color
@@ -222,7 +222,7 @@ class App:
         self.root.tk.call('wm', 'iconphoto', self.root._w, icon_img)
         #self.root.configure(bg="blue")
         self.root.config(bg="#F5F5F5")
-        self.root.minsize(1200,500)
+        self.root.minsize(1500,550)
 
         self.create_menu()
         self.is_installing_driver = False
@@ -360,7 +360,7 @@ class App:
         self.button_confirm = HoverButton(frame_left, text="confirm", color = "lightgray", command=self.handle_confirm_button)
         self.button_confirm.grid(row=11, column=1, sticky='w', padx=20, pady=20)
         self.button_cancel = HoverButton(frame_left, text="cancel", color = "lightgray", command=self.handle_cancel_button)
-        self.button_cancel.grid(row=11, column=1, sticky='e', padx=150, pady=20)
+        self.button_cancel.grid(row=11, column=1, sticky='e', padx=300, pady=20)
 
         self.text_area = ScrolledText(frame_right, wrap=tk.WORD, state=tk.DISABLED, bg='lightgray', fg='black', font=("Courier", 10))
         self.text_area.grid(sticky='nsew', padx=10, pady=10)
@@ -427,23 +427,6 @@ class App:
                 else:
                     self.entries_vars_current_value[i] = entry.get()
 
-    def click_cancel_button_to_restore(self):
-        # 将所有的输入框恢复可编辑
-        for entry in enumerate(self.entries, start=1):
-            entry[1].config(state='normal')
-        # 浏览器类型和测试项可重新选择
-        all_radio_buttons = self.browser_radio_buttons + self.test_item_radio_buttons
-        for rb in all_radio_buttons:
-            rb.config(state=tk.NORMAL)
-        # 测试项可使用tab选择的变量
-        self.test_item_radio_is_enabled = True
-        # 所有准备未就绪
-        self.set_input_ready_event(False)
-        # 驱动是否可用的状态标志恢复默认
-        self.driver_is_good = False
-        # 驱动是否完全启动的状态标志恢复默认
-        self.driver_fully_booted_is_ok = False
-        
     # 所有资源和信息确认按钮，启动测试
     def handle_confirm_button(self, event):
         # 提示正在下载驱动，还没有使用自动下载的驱动
@@ -463,7 +446,25 @@ class App:
         # 所有准备已就绪
         self.set_input_ready_event(True)
 
-    # 所有资源和信息取消按钮，重新输入信息
+    # 所有资源和信息恢复默认
+    def click_cancel_button_to_restore(self):
+        # 将所有的输入框恢复可编辑
+        for entry in enumerate(self.entries, start=1):
+            entry[1].config(state='normal')
+        # 浏览器类型和测试项可重新选择
+        all_radio_buttons = self.browser_radio_buttons + self.test_item_radio_buttons
+        for rb in all_radio_buttons:
+            rb.config(state=tk.NORMAL)
+        # 测试项可使用tab选择的变量
+        self.test_item_radio_is_enabled = True
+        # 所有准备未就绪
+        self.set_input_ready_event(False)
+        # 驱动是否可用的状态标志恢复默认
+        self.driver_is_good = False
+        # 驱动是否完全启动的状态标志恢复默认
+        self.driver_fully_booted_is_ok = False
+        
+    # 所有资源和信息取消按钮，取消测试确认键
     def handle_cancel_button(self, event):
         if self.input_ready_event.is_set() and self.driver_is_good:
             if self.driver_fully_booted_is_ok:
@@ -1640,7 +1641,7 @@ def lalala(app):
             except Exception as e:
                 # 主线程中打印详细的错误信息
                 app.root.after(0, lambda: app.print_colored(f"Error: {e}\n", "RED"))
-                app.root.after(0, lambda: app.print_colored("Browser driver was not started due to an error or missing file.\n", "RED"))
+                app.root.after(0, lambda: app.print_colored("Browser driver was not started due to an error or driver missing/mismatched.\n", "RED"))
                 app.root.after(0, lambda: print(""))
 
 if __name__ == "__main__":  
