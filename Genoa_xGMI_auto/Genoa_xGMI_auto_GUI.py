@@ -608,7 +608,7 @@ class App:
         error_window.title("Driver Info - Installation Status(Error)")
         
         first_frame_error_prompt = tk.Frame(error_window)
-        first_frame_error_prompt.pack(pady=20)
+        first_frame_error_prompt.pack(pady=10)
         if self.driver_version:
             error_text = "Failed to install driver(网络错误或驱动版本格式不对,请检查重试或自行下载后执行File->Get new driver->open):"
         else:
