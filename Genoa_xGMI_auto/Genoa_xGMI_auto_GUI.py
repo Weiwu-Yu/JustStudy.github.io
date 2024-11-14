@@ -246,6 +246,7 @@ class App:
             1: 'Edge',  
             2: 'Chrome'
         }
+        self.request_download_browser = "Edge"
         self.browser_radio_buttons = []
         for j, (browser_type_key, browser_type_value) in enumerate(self.browser_type.items(), start=1):  
             rb = tk.Radiobutton(frame_left, 
@@ -382,6 +383,7 @@ class App:
         # 标志变量，指示驱动是否已完全启动
         self.driver_fully_booted_is_ok = False
 
+    # 准备就绪的状态用线程事件设置
     def set_input_ready_event(self, value):
         self.input_ready_event.set() if value else self.input_ready_event.clear()
  
@@ -399,8 +401,8 @@ class App:
             self.root.quit()
             self.root.destroy()
 
-    #  所有资源和信息显示为需要的信息
-    def click_confirm_button_to_change_entry_info(self):
+    #  所有状态锁定
+    def click_confirm_button_to_setup(self):
         # 将所有的输入框锁定不可编辑
         for entry in enumerate(self.entries, start=1):
             entry[1].config(state='readonly')
@@ -410,24 +412,24 @@ class App:
             rb.config(state=tk.DISABLED)
         # 测试项锁定的时候不再可使用tab选择
         self.test_item_radio_is_enabled = False
+        
+    # 所有资源和信息确认按钮，启动测试确认件
+    def handle_confirm_button(self, event):
+        # 提示正在下载驱动，还没有使用自动下载的驱动
+        if self.is_installing_driver:
+            self.show_driver_download_info()
         # 所有准备已就绪
         self.set_input_ready_event(True)
+        # 输入框的信息提炼
         for i, entry in enumerate(self.entries, start=1):
             if not entry.get():
                 self.entries_vars_current_value[i] = self.entries_vars_current_value[i]
                 self.entries_var[i-1].set(self.entries_vars_default_value[i])
                 self.root.focus_set()
             else:
-                if i == 4:
-                    if "Default one estimated time for test" in entry.get():
-                        self.entries_vars_current_value[i] = self.default_time
-                        self.entries_var[i-1].set(self.default_time)
-                    else:
-                        one_time = ''
-                        for char in entry.get():
-                            if char.isdigit():
-                                one_time += char
-                        self.entries_vars_current_value[i] = int(one_time)
+                if i == 4 and "Default one estimated time for test" in entry.get():
+                    self.entries_vars_current_value[i] = self.default_time
+                    self.entries_var[i-1].set(self.default_time)
                 elif i == 1 and entry.get() == "Please enter your NTID username":
                     self.entries_vars_current_value[i] = self.entries_vars_default_value[i]
                     self.entries_var[i-1].set(self.entries_vars_default_value[i])
@@ -438,15 +440,7 @@ class App:
                 else:
                     self.entries_vars_current_value[i] = entry.get()
 
-    # 所有资源和信息确认按钮，启动测试确认件
-    def handle_confirm_button(self, event):
-        # 提示正在下载驱动，还没有使用自动下载的驱动
-        if self.is_installing_driver:
-            self.show_driver_download_info()
-        # 执行输入框的信息提炼函数
-        self.click_confirm_button_to_change_entry_info()
-
-    # 所有资源和信息恢复默认
+    # 所有状态恢复默认
     def click_cancel_button_to_restore(self):
         # 将所有的输入框恢复可编辑
         for entry in enumerate(self.entries, start=1):
@@ -478,6 +472,7 @@ class App:
         else:
             self.click_cancel_button_to_restore()   
 
+    # 绑定tab键聚焦
     def handle_enter(self, event):
         self.entries = [self.username_entry, self.password_entry, self.runtimes_entry, self.estimated_time_entry]
         idx = self.entries.index(event.widget)
@@ -486,6 +481,7 @@ class App:
         else:
             self.button_confirm.focus_set()
 
+    # 打印有颜色的文本输出到text当中，若是指定将输入框的信息打印，则打印对应需要的文本
     def print_colored(self, text, tag=None, i=999):
         while not self.input_ready_event.is_set():
             if self.window_closed:
@@ -506,6 +502,7 @@ class App:
             sys.stdout.write(text, tag)
             return self.user_input_display
 
+    # UI菜单
     def create_menu(self):  
         # 创建菜单栏  
         menu_bar = tk.Menu(self.root)  
@@ -523,6 +520,7 @@ class App:
         driver_menu.add_separator()
         driver_menu.add_command(label="Install", command=self.start_driver_installation_Prepare) 
 
+    # 可以在菜单中选择使用默认的驱动
     def use_default_driver(self):
         if self.input_ready_event.is_set():
             print("您已锁定测试选项,请先单击“cancel”,然后选择")
@@ -532,6 +530,7 @@ class App:
         else:
             self.select_browser_radio()
 
+    # 可以在菜单中选择使用用户自己已经安装的驱动
     def get_driver_from_folder(self): 
         if self.input_ready_event.is_set():
             print("您已锁定测试选项,请先单击“cancel”,然后选择")
@@ -550,10 +549,12 @@ class App:
                 for rb in self.browser_radio_buttons:
                     rb.config(state=tk.DISABLED)
 
+    # 可以在菜单中选择下载驱动，则准备开始下载前的工作
     def start_driver_installation_Prepare(self):
         if self.input_ready_event.is_set():
             print("您已锁定测试选项,请先单击“cancel”,然后选择")
             return
+        # 如果正在下载的线程没有结束，则提示正在下载，不重复执行下载任务
         if self.is_installing_driver:
             self.show_driver_download_info()
             return
@@ -566,22 +567,26 @@ class App:
         self.driver_version = simpledialog.askstring("Driver Version", "指定一个版本或者直接点击按钮下载最新版本:")
         self.root.after(0, self.start_driver_installation_threading)
 
+    # 开启下载driver子线程任务
     def start_driver_installation_threading(self):
         # 创建一个守护线程来安装驱动
         thread = threading.Thread(target=self.get_driver_automatically, daemon=True)
         thread.start()
 
+    # 执行下载driver子线程
     def get_driver_automatically(self): 
         # 自动下载Edge驱动  
         try:  
             selected_browser = self.browser_type_var.get()
             if selected_browser == 1:  # Edge
+                self.request_download_browser = "Edge"
                 from webdriver_manager.microsoft import EdgeChromiumDriverManager
                 if self.driver_version:
                     driver_path = EdgeChromiumDriverManager(version=self.driver_version).install() 
                 else:
                     driver_path = EdgeChromiumDriverManager().install()    
             else:   #Chrome
+                self.request_download_browser = "Chrome"
                 from webdriver_manager.chrome import ChromeDriverManager
                 if self.driver_version:
                     driver_path = ChromeDriverManager(version=self.driver_version).install()
@@ -595,12 +600,18 @@ class App:
         finally:
             self.is_installing_driver = False
 
+    # 展示下载成功信息，并设置driver组件的显示情况
     def show_success_message(self, driver_path):
         if self.driver_info_dialog is not None:
             self.driver_info_dialog_close()
         messagebox.showinfo("Driver Info - Installation Status(success)", f"Driver installed successfully!\nPath: {driver_path}")
         self.driver_path_var.set(driver_path) 
+        if "chrome" in self.driver_path_var.get().split("\\")[-1].lower():
+            self.browser_type_var.set(2) 
+        else:
+            self.browser_type_var.set(1)
  
+    # 展示下载出错信息，提示下载链接
     def show_error_message(self, error_message):
         if self.driver_info_dialog is not None:
             self.driver_info_dialog_close()
@@ -679,6 +690,7 @@ class App:
         except Exception as img_error:
             print(f"Failed to load image: {img_error}")
     
+    # 展示正在下载驱动的提示
     def show_driver_download_info(self):
         if self.driver_info_dialog is not None:
             self.driver_info_dialog.focus_set()
@@ -688,7 +700,7 @@ class App:
             self.driver_info_dialog.title("Driver Info - Installation Status(ongoing)")
 
             # 显示文本信息
-            text1 = "The driver you requested is being downloaded automatically. Please wait~"
+            text1 = f"The {self.request_download_browser} driver you requested is being downloaded automatically. Please wait~"
             text2 = f"The driver you are currently using is:    {self.driver_path_var.get()}"
             text3 = "After the driver download is completed, you will be prompted as follows:"
             text4 = "(Similarly, if the download fails, there will also be a prompt.)"
@@ -716,10 +728,12 @@ class App:
 
             self.driver_info_dialog.protocol("WM_DELETE_WINDOW", self.driver_info_dialog_close)
 
+    # 关闭正在下载驱动的提示
     def driver_info_dialog_close(self):
         self.driver_info_dialog.destroy()
         self.driver_info_dialog = None
 
+    # 根据浏览器选择默认的驱动
     def select_browser_radio(self):
         # 启用浏览器选择按钮
         for rb in self.browser_radio_buttons:
@@ -729,13 +743,11 @@ class App:
             get_edge_driver_path = get_path("assets/msedgedriver.exe")
             self.driver_path_var.set(f"Edge默认驱动:    {get_edge_driver_path}") 
         else: # Chrome
-            get_Google_driver_path = get_path("assets/msedgedriver1.exe")
+            get_Google_driver_path = get_path("assets/chromedriver.exe")
             self.driver_path_var.set(f"Google默认驱动:  {get_Google_driver_path}")
 
+    # 返回当前浏览器的驱动路径。若文件不存在，抛出异常提示
     def get_clean_driver_path(self):
-        """
-        返回当前浏览器的驱动路径。若文件不存在，抛出异常提示
-        """
         # 获取清理前的路径
         raw_path = self.driver_path_var.get()
         # 去除前缀信息和多余空格
@@ -916,17 +928,8 @@ class loop_Exception(MyError):
 class Estimated_Exception(MyError):
     pass
 
+#执行后台任务，并通过队列与主线程通信,用于处理UI界面,并启动web自动测试
 def load_auto_modules(app):
-    """
-    执行后台任务，并通过队列与主线程通信,用于处理UI界面,并启动web自动测试
-
-    参数：
-    app(CLASS): 继承了tk.Tk的App类的实例   
-
-    返回：
-    所有次数的解锁结果，最后停留在交互界面
-    """
-
     asd = globals()
     import pysy
     asd.update(locals())
@@ -986,11 +989,10 @@ def load_auto_modules(app):
                     app.root.after(0, lambda: app.print_colored(f"Error: {e}\n", "RED"))
                     app.root.after(0, lambda: app.print_colored("Browser driver was not started due to an error or missing file.\n", "RED"))
                     app.root.after(0, lambda: print(""))
+                    app.click_cancel_button_to_restore()
     
     def input_demand(app):
-        while True:
-            app.print_colored(f"欢迎使用Genoa xGMI_auto tool \n", "BOLD")
-            break
+        app.print_colored(f"欢迎使用Genoa xGMI_auto tool \n", "BOLD")
 
         while True:
             app.print_colored(f"\n")
@@ -1611,39 +1613,128 @@ def main():
     root.mainloop()
 
 def lalala(app):
-    driver = None
-    while True:
-        # 检查Event对象的内部标志是否被设置为True
-        if not app.input_ready_event.is_set():
-            # 如果有正在运行的 driver 且 input_ready_event 为 False，则关闭所有打开的浏览器
-            if driver is not None:
-                driver.quit()
-                driver = None  # 重置 driver 引用
-            # 等待input_ready_event变为True
-            app.input_ready_event.wait()
+    app.print_colored(f"欢迎使用Genoa xGMI_auto tool \n", "BOLD")
+    print("")
+    def input_demand(app):
+        # 打印测试项
+        for key,value in app.test_items.items():
+            print(f"{key}: {value};")
+        # 获取测试项
+        item = app.print_colored("Test item to be run: ", i=0)
+        app.print_colored(f"You will run {app.test_items[item]} \n", "GREEN")
+        # 测试项无问题，指定为不可编辑,不可tab选择
+        for rb in app.test_item_radio_buttons:
+            rb.config(state=tk.DISABLED)
+        app.test_item_radio_is_enabled = True
 
+        # 获取用户名和密码
+        sdu_username = app.print_colored("AMD AC - NTID username: ", i=1)
+        sdu_password = app.print_colored(f"AMD PW - Password for user {sdu_username}: ", i=2)
+        # 账户密码处理
+        while True:
             try:
-                app.root.after(0, lambda: print("The browser is opening, please wait a few seconds..."))
-                # 根据选择的浏览器类型初始化对应的选项和驱动路径
-                if app.browser_type_var.get() == 1:
-                    options = webdriver.EdgeOptions()
-                    options.add_experimental_option('detach', True)  #不自动关闭浏览器
-                    driver_path = EdgeService(app.get_clean_driver_path())
-                    driver=webdriver.Edge(service=driver_path,options=options)
-                else:
-                    options = webdriver.ChromeOptions()
-                    options.add_experimental_option('detach', True)  #不自动关闭浏览器
-                    driver_path = ChromeService(app.get_clean_driver_path())
-                    driver=webdriver.Chrome(service=driver_path,options=options)
-                app.root.after(0, lambda: print("Successfully initialize of WebDriver"))
-                app.driver_fully_booted_is_ok = True
-                driver.get('https://www.baidu.com')
+                #print(f"请稍等，正在校验账户密码...")
+                #unlock(sdu_username,sdu_password)
+                #result = is_locked()
+                result = True
+                app.print_colored("The account & password is correct \n", "GREEN")
+                # 账户密码无问题，指定为不可编辑
+                readonly_indices = [1, 2]  
+                for index, entry in enumerate(app.entries, start=1):
+                    if index in readonly_indices:
+                        entry.config(state='readonly')
+                break
             except Exception as e:
-                # 主线程中打印详细的错误信息
-                app.root.after(0, lambda: app.print_colored(f"Error: {e}\n", "RED"))
-                app.root.after(0, lambda: app.print_colored("Browser driver was not started due to an error or driver missing/mismatched.\n", "RED"))
-                app.root.after(0, lambda: print(""))
-                app.click_cancel_button_to_restore()
+                app.print_colored(f"{e} -- 账号密码错误或者网络已断开，检查后重试 \n", "RED")
+                app.set_input_ready_event(False)
+
+        # 测试次数处理
+        while True:       
+            try:
+                num_times_input = app.print_colored("Number to loop through: ", i=3)
+                num_times = int(''.join(char for char in num_times_input if char.isdigit()))
+                app.print_colored(f"You will run {num_times} times \n", "GREEN")
+                # 测试次数无问题，指定为不可编辑
+                app.runtimes_entry.config(state='readonly')
+                break
+            except Exception as e:
+                app.print_colored(f"{e} -- loop_number invalid, please input a number again \n", "RED")
+                app.set_input_ready_event(False)
+            
+        # 预估时间处理
+        while True:
+            try:
+                # 捕获并提示用户预估时间输入的内容
+                one_time_input = app.print_colored("Approximately run one time(s): ", i=4)
+                # 检查输入是否是使用了默认时间为数字类型
+                if isinstance(one_time_input, (int, float)):
+                    # 如果是数字类型，直接使用它
+                    one_time = int(one_time_input) 
+                else:
+                    # 如果是字符串，即用户输入的时间，则从预估时间输入字符串中提取数字并转为整数
+                    one_time = int(''.join(char for char in one_time_input if char.isdigit()))
+                # 获取测试项的最小时间要求
+                test_info = {
+                    1: {"min_time": 3800, "name": "GSA Stress"},
+                    2: {"min_time": 1500, "name": "4-Point Parallel^2 Test"},
+                    3: {"min_time": 2300, "name": "4-Point Test"},
+                    4: {"min_time": 2800, "name": "Margin Search(BER9)"},
+                    5: {"min_time": 4300, "name": "Margin Search(BER10)"}
+                }
+                test_data = test_info.get(item)
+                # 检查是否满足最低测试时间要求
+                if test_data and one_time < test_data["min_time"]:
+                    app.print_colored(f"Estimated time is not enough, at least {test_data['min_time']}s for the '{test_data['name']}' test.\n", "RED")
+                    app.set_input_ready_event(False)
+                    continue  # 重新输入
+                # 输出最低测试时间确认信息
+                app.print_colored(f"Your estimated time for '{test_data['name']}' test is {one_time}s.\n", "GREEN")
+                print("")
+                # 预估时间无问题，指定为不可编辑
+                app.estimated_time_entry.config(state='readonly')
+                # 结束循环
+                return sdu_username, sdu_password, num_times, result, one_time, item
+            except ValueError as e:
+                app.print_colored(f"No valid number found in the Estimated time input, please input a number again.\n", "RED")
+                app.set_input_ready_event(False)
+
+    def driver_start(app):
+        driver = None
+        while True:
+            # 检查Event对象的内部标志是否被设置为False
+            if not app.input_ready_event.is_set():
+                # 如果有正在运行的 driver 且 input_ready_event 为 False，则关闭所有打开的浏览器
+                if driver is not None:
+                    driver.quit()
+                    driver = None  # 重置 driver 引用
+                app.input_ready_event.wait()
+                try:
+                    app.root.after(0, lambda: print("The browser is opening, please wait a few seconds..."))
+                    # 根据选择的浏览器类型初始化对应的选项和驱动路径
+                    if app.browser_type_var.get() == 1:
+                        options = webdriver.EdgeOptions()
+                        options.add_experimental_option('detach', True)  #不自动关闭浏览器
+                        driver_path = EdgeService(app.get_clean_driver_path())
+                        driver=webdriver.Edge(service=driver_path,options=options)
+                    else:
+                        options = webdriver.ChromeOptions()
+                        options.add_experimental_option('detach', True)  #不自动关闭浏览器
+                        driver_path = ChromeService(app.get_clean_driver_path())
+                        driver=webdriver.Chrome(service=driver_path,options=options)
+                    app.root.after(0, lambda: print("Successfully initialize of WebDriver"))
+                    app.driver_fully_booted_is_ok = True
+                    driver.get('https://www.baidu.com')
+                except Exception as e:
+                    # 主线程中打印详细的错误信息
+                    app.root.after(0, lambda: app.print_colored(f"Error: {e}\n", "RED"))
+                    app.root.after(0, lambda: app.print_colored("Browser driver was not started due to an error or driver missing/mismatched.\n", "RED"))
+                    app.root.after(0, lambda: print(""))
+                    app.click_cancel_button_to_restore()
+            else:
+                input_demand(app)
+                app.set_input_ready_event(False)
+
+    driver_start(app)
 
 if __name__ == "__main__":  
     main()
