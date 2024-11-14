@@ -1723,6 +1723,7 @@ def lalala(app):
                         driver=webdriver.Chrome(service=driver_path,options=options)
                     app.root.after(0, lambda: print("Successfully initialize of WebDriver"))
                     app.driver_fully_booted_is_ok = True
+                    app.click_confirm_button_to_setup()
                     driver.get('https://www.baidu.com')
                 except Exception as e:
                     # 主线程中打印详细的错误信息
