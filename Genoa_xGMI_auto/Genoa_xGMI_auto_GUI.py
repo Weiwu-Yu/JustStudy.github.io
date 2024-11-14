@@ -1613,7 +1613,7 @@ def main():
     root.mainloop()
 
 def lalala(app):
-    app.print_colored(f"欢迎使用Genoa xGMI_auto tool \n", "BOLD")
+    app.root.after(0, lambda: app.print_colored(f"欢迎使用Genoa xGMI_auto tool \n", "BOLD"))
     print("")
     def input_demand(app):
         # 打印测试项
