@@ -39,11 +39,11 @@ import os
 import code
 import readline as r
 import rlcompleter
-#import platform as _pt
 import random
 import re
 import time
 import tkinter as tk
+from tkinter import colorchooser
 from tkinter import font  
 from tkinter import simpledialog, filedialog, messagebox
 from tkinter.scrolledtext import ScrolledText
@@ -62,6 +62,33 @@ import cv2
 import numpy as np
 from subprocess import CREATE_NO_WINDOW
 import threading  
+from queue import Queue
+import webbrowser
+
+# 给定一个16进制颜色返回一个更亮的颜色
+def lighten_hex_color(hex_color, factor=0.9):
+    # 确保输入是一个有效的十六进制颜色字符串
+    hex_color = hex_color.lstrip('#')
+    if len(hex_color) != 6:
+        raise ValueError("Invalid hex color format")
+    
+    # 将十六进制颜色转换为RGB元组
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+    
+    # 根据因子减少每个颜色通道的值
+    r_new = int(r * factor)
+    g_new = int(g * factor)
+    b_new = int(b * factor)
+    
+    # 确保新的颜色值不会变成负数
+    r_new = max(0, r_new)
+    g_new = max(0, g_new)
+    b_new = max(0, b_new)
+    
+    # 将新的RGB值转换回十六进制颜色字符串
+    return '#{:02x}{:02x}{:02x}'.format(r_new, g_new, b_new)
 
 # 直接运行与打包成exe的文件路径不一样，以获取需要用到的资源
 def get_path(relative_path):
@@ -72,7 +99,7 @@ def get_path(relative_path):
  
     return os.path.normpath(os.path.join(base_path, relative_path))
 
-# 原Go_pi用colorama模块打印的不同颜色信息在重定向时更改为UI控件的标签颜色
+# 全局字典，用于将ANSI转义序列映射到标签名称和样式(原Go_pi用colorama模块打印的不同颜色信息在重定向时更改为UI控件的标签颜色)
 ANSI_TO_TAG = {
     "\033[31m": "tag_red",
     "\033[32m": "tag_green",
@@ -94,34 +121,52 @@ ANSI_STYLES = {
 
 # 重定向类，负责将原Go_pi代码print的内容保存在队列中，以便主UI界面获取
 class RedirectedIO:
+    """
+    单个处理线程：在 __init__ 方法中启动一个单独的线程来处理队列中的所有写入请求。
+    线程间通信: 使用队列作为线程间通信的唯一方式。主线程(写入线程)将数据放入队列,而处理线程则从队列中取出数据以便后续更新UI。
+    UI更新同步: 使用Tkinter的 after 方法或类似的机制来安排UI更新在主线程中执行。
+    """
     def __init__(self, widget):
         self.widget = widget
-        self.pattern = re.compile(r'(\033\[\d+m)')  # 返回的正则表达式对象用于识别和处理ANSI转义序列，\033匹配ANSI转义序列的引导字符（ESC，是colorama模块用于控制终端的输出格式）。在Python字符串中,\033是八进制表示法,等同于十六进制的\x1B
-        self.current_directory = os.getcwd()
-        self.log_file_path = os.path.join(self.current_directory, "xGMI_auto_GUI_log.txt")
-        self.log_file_lock = threading.Lock()  # 添加线程锁
-        self.ensure_log_file_exists()  
-        self.log_file = open(self.log_file_path, "a", encoding="utf-8")  
-        self.widget_state_lock = threading.Lock()  # 用于保护widget状态更改的锁  
-  
-    def ensure_log_file_exists(self):  
-        if not os.path.exists(self.log_file_path) or os.stat(self.log_file_path).st_size == 0:  
-            with open(self.log_file_path, "w", encoding="utf-8") as f:  
-                creation_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())  
-                f.write(f"This log file created at: {creation_time}\n\n")  
-        
+        self.pattern = re.compile(r'(\033\[\d+m)') # 返回的正则表达式对象用于识别和处理ANSI转义序列，\033匹配ANSI转义序列的引导字符（ESC，是colorama模块用于控制终端的输出格式）。在Python字符串中,\033是八进制表示法,等同于十六进制的\x1B
+        self.queue = Queue()
+        self.textarea_widget_state_lock = threading.Lock()  # 用于保护textarea控件更新的锁，防止其余线程更新文本区UI  
+        threading.Thread(target=self._process_queue_thread, daemon=True).start() # 启动一个守护线程来处理队列中的信息（本文件中的第二个子线程 yww_thread_2（仅供记录，避免可能的线程问题））
+
+    # 主线程UI中会调用的函数：将信息放入队列，而不是直接更新控件    
     def write(self, text, tag=None):
-        with self.widget_state_lock:  # 使用 with 语句来管理锁，确保锁在适当的时候被释放
+        self.queue.put((text, tag))
+    
+    # 从队列中取出信息并更新控件（更新控件在主线程中运行）
+    def _process_queue_thread(self):
+        while True:
+            try:
+                # 从队列中获取一个项目（阻塞直到有项目可用）
+                text, tag = self.queue.get(block=True)
+                # 使用Tkinter的after方法在主线程中更新UI
+                # 注意，由于 after(0, ...) 会将 _update_widget方法安排到主线程的事件循环中的下一个空闲时间执行，
+                # 因此可能会有多个 _update_widget 调用被排队等待执行。
+                # 这通常不是问题，因为Tkinter的事件循环会按顺序处理它们。
+                self.widget.after(0, self._update_widget, text, tag)
+            except self.queue.Empty:
+                # 如果队列为空，则退出循环（但实际上由于block=True，这不会发生）
+                break
+
+    #从队列中取出信息并更新控件（是在主线程中运行）
+    def _update_widget(self, text, tag):
+        with self.textarea_widget_state_lock:  # 使用 with 语句来管理锁
+            # 控件可编辑，插入信息
             self.widget.config(state=tk.NORMAL)  
 
-        with self.log_file_lock:
+            # 每次更新文本的内容中只改变了其中的数字部分，显示时只显示最新的内容
             if "\r" in text:
                 current_line_start = self.widget.index("insert linestart")
                 current_line_end = self.widget.index("insert lineend")
                 self.widget.delete(current_line_start, current_line_end)
                 #self.widget.delete("end-1l linestart", tk.END)
                 text = text.replace("\r", "")
- 
+
+            # 展示文本内容，如果原始信息中使用了colorama模块，则使用ANSI转义序列打印有颜色的文本
             parts = self.pattern.split(text)
             current_tag = tag
             for part in parts:
@@ -132,21 +177,13 @@ class RedirectedIO:
                     current_tag = tag_name
                 else:
                     self.widget.insert(tk.END, part, current_tag)
-            #self.widget.insert(tk.END, text, tag)
             self.widget.see(tk.END) 
-            self.widget.update_idletasks()
+            #self.widget.update_idletasks()# 由于是在after方法中，所以不需要再次调用update_idletasks()，Tkinter会自动处理空闲任务
+
+            # 控件恢复默认，用户不可编辑
             self.widget.config(state=tk.DISABLED)
 
-            self.log_file.write(part)
-            self.log_file.flush()
-
-    def flush(self):
-        pass
-
-    def close(self):
-        self.log_file.close()
-        #如果在 write() 方法中发生异常，文件可能不会被正确关闭。考虑使用 try...finally 结构或上下文管理器（with 语句）来确保文件总是被关闭
-  
+# 自定义画布按钮
 class HoverButton(tk.Canvas):  
     def __init__(self, master=None, text='', radius=10, color=None, command=None, **kw):  
         super().__init__(master, width=100, height=50, highlightthickness=0, **kw)
@@ -166,7 +203,7 @@ class HoverButton(tk.Canvas):
 
         self.font_normal = font.Font(family='Arial', size=10)  
         self.font_hover = font.Font(family='Arial', size=10, weight='bold')  
-        self.default_bg = self.color
+        self.default_bg = lighten_hex_color(self.color)
         self.hover_bg_1 = 'lightgreen'
         self.hover_bg_2 = 'lightblue'  
 
@@ -203,43 +240,44 @@ class HoverButton(tk.Canvas):
     def on_click(self, event=None):
         if self.command is not None:  
             self.command(event)
- 
+
+    def update_color(self, new_color):
+        self.color = new_color
+        self.redraw_rectangle(None) 
+
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("xGMI_auto")
-        #self.root.attributes("-topmost", True)  # 程序始终在屏幕最上方
-        #self.root.geometry("800x600")
-        #self.root.state("zoomed")
-        import base64
+        self.root.title("Genoa_xGMI_auto")
+        #self.root.attributes("-topmost", True)  # 窗口始终在屏幕最上方
+        #self.root.state("zoomed") # 窗口将启动时最大化
+        import base64 # 导入base64模块，用于处理二进制数据
         with open(get_path("assets/logo.ico"), 'rb') as open_icon:
-            b64str = base64.b64encode(open_icon.read())
+            b64str = base64.b64encode(open_icon.read()) # 防止文件出错，获得引用后及时关闭， 将图标文件读取并编码为base64字符串
         #self.root.iconbitmap(get_path("assets/1.ico"))
-        from base64 import b64decode
         icon_img = b64str
-        icon_img = b64decode(icon_img)
-        icon_img = ImageTk.PhotoImage(data=icon_img)
-        self.root.tk.call('wm', 'iconphoto', self.root._w, icon_img)
-        #self.root.configure(bg="blue")
-        self.root.config(bg="#F5F5F5")
-        self.root.minsize(1500,550)
+        icon_img = base64.b64decode(icon_img) # 解码base64字符串
+        icon_img = ImageTk.PhotoImage(data=icon_img) # 将解码后的数据转换为ImageTk.PhotoImage对象
+        self.root.tk.call('wm', 'iconphoto', self.root._w, icon_img) # 设置窗口图标
+        self.theme_color = '#F5F5F5'  # 默认主题颜色浅灰色
+        self.root.config(bg=self.theme_color)
+        self.root.minsize(1700,550)
 
         self.create_menu()
+        self.save_log_content = ""
         self.is_installing_driver = False
 
-        frame_left = tk.Frame(root)  
-        #frame_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
-        frame_left.grid(row=0, column=0, sticky="nsew")
-        frame_right = tk.Frame(root)  
-        #frame_right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
-        frame_right.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
-        root.grid_columnconfigure(0, weight=1)
-        root.grid_columnconfigure(1, weight=1)
-        root.grid_rowconfigure(0, weight=1)
-        frame_right.grid_columnconfigure(0, weight=1)
-        frame_right.grid_rowconfigure(0, weight=1)
+        self.frame_left = tk.Frame(self.root, bg=self.theme_color)  
+        self.frame_left.grid(row=0, column=0, sticky="nsew")
+        self.frame_right = tk.Frame(self.root, bg=self.theme_color)  
+        self.frame_right.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        self.root.grid_columnconfigure(0, weight=1)
+        self.root.grid_columnconfigure(1, weight=1)
+        self.root.grid_rowconfigure(0, weight=1)
+        self.frame_right.grid_columnconfigure(0, weight=1)
+        self.frame_right.grid_rowconfigure(0, weight=1)
         
-        self.browser_type_label = tk.Label(frame_left, text="浏览器: ")
+        self.browser_type_label = tk.Label(self.frame_left, text="浏览器: ", bg=self.theme_color)
         self.browser_type_label.grid(row=0, column=0, sticky='w', padx=5)
         self.browser_type_var = tk.IntVar(value=1)
         self.browser_type = {  
@@ -249,11 +287,12 @@ class App:
         self.request_download_browser = "Edge"
         self.browser_radio_buttons = []
         for j, (browser_type_key, browser_type_value) in enumerate(self.browser_type.items(), start=1):  
-            rb = tk.Radiobutton(frame_left, 
+            rb = tk.Radiobutton(self.frame_left, 
                                 value=browser_type_key,
                                 text=browser_type_value, 
                                 variable=self.browser_type_var, 
-                                command=self.select_browser_radio)
+                                command=self.select_browser_radio,
+                                bg=self.theme_color)
             if j == 1:
                 rb.grid(row=0, column=j, sticky='w', padx=50)
             else:
@@ -261,18 +300,19 @@ class App:
             self.browser_radio_buttons.append(rb)
 
         # 初始驱动路径
-        self.driver_path_label = tk.Label(frame_left, text="驱动路径:")  
+        self.driver_path_label = tk.Label(self.frame_left, text="驱动路径:", bg=self.theme_color)  
         self.driver_path_label.grid(row=1, column=0, sticky='w', padx=5, pady=10)  
         self.driver_path_var = tk.StringVar(value="")  
-        self.driver_path_entry = tk.Entry(frame_left, textvariable=self.driver_path_var, width=50, state='readonly')  
+        self.driver_path_entry = tk.Entry(self.frame_left, textvariable=self.driver_path_var, width=50, bg=lighten_hex_color(self.theme_color))  
         self.driver_path_entry.grid(row=1, column=1, sticky='ew', padx=5, pady=10)
+        self.driver_path_entry.bind('<Key>', lambda event: 'break')
         # 根据初始浏览器选择设置驱动路径显示文本
         self.select_browser_radio()  # 调用一次以设置初始状态
         self.driver_info_dialog = None
 
         self.entries_vars_current_value = []
         self.entries_vars_default_value = []
-        self.test_item_label = tk.Label(frame_left, text="xGMI测试项: ")
+        self.test_item_label = tk.Label(self.frame_left, text="xGMI测试项: ", bg=self.theme_color)
         self.test_item_label.grid(row=4, column=0, sticky='w', padx=5)
         self.test_item_var = tk.IntVar(value=1)
         self.test_item_radio_is_enabled = True
@@ -287,7 +327,7 @@ class App:
         }
         self.test_item_radio_buttons = []
         for i, (key, value) in enumerate(self.test_items.items(), start=1):  
-            rb = tk.Radiobutton(frame_left, text=value, variable=self.test_item_var, value=key, command=self.update_estimated_time_entry)
+            rb = tk.Radiobutton(self.frame_left, text=value, variable=self.test_item_var, value=key, command=self.update_estimated_time_entry, bg=self.theme_color)
             rb.grid(row=i+1, column=1, sticky='w', padx=5)
             rb.bind("<Return>", self.select_test_item_radio_ok)
             rb.bind("<Tab>", self.select_test_item_radio_tab)
@@ -305,13 +345,13 @@ class App:
         self.default_password_var.set("Ev@20240912")
         self.entries_vars_current_value.append(self.password_var.get())
         self.entries_vars_default_value.append(self.default_password_var.get())
-        self.username_label = tk.Label(frame_left, text="AMD用户名: ")
+        self.username_label = tk.Label(self.frame_left, text="AMD用户名: ", bg=self.theme_color)
         self.username_label.grid(row=7, column=0, sticky='w', padx=5, pady=10)
-        self.username_entry = tk.Entry(frame_left, textvariable=self.username_var, width=len(self.username_var.get())+5)
+        self.username_entry = tk.Entry(self.frame_left, textvariable=self.username_var, width=len(self.username_var.get())+5, bg=lighten_hex_color(self.theme_color))
         self.username_entry.grid(row=7, column=1, sticky='ew', padx=5, pady=10)  
-        self.password_label = tk.Label(frame_left, text="AMD密码: ")
+        self.password_label = tk.Label(self.frame_left, text="AMD密码: ", bg=self.theme_color)
         self.password_label.grid(row=8, column=0, sticky='w', padx=5, pady=10)
-        self.password_entry = tk.Entry(frame_left, textvariable=self.password_var, show= '*')
+        self.password_entry = tk.Entry(self.frame_left, textvariable=self.password_var, show= '*', bg=lighten_hex_color(self.theme_color))
         self.password_entry.grid(row=8, column=1, sticky='ew', padx=5, pady=10)
         self.username_entry.bind("<FocusIn>", self.on_username_focus_in)  
         self.username_entry.bind("<FocusOut>", self.on_username_focus_out)
@@ -324,9 +364,9 @@ class App:
         self.runtimes_var.set("Please enter the number to loop through")
         self.entries_vars_current_value.append(self.runtimes_var.get())
         self.entries_vars_default_value.append(self.runtimes_var.get())
-        self.runtimes_label = tk.Label(frame_left, text="测试/解锁次数:")
+        self.runtimes_label = tk.Label(self.frame_left, text="测试/解锁次数:", bg=self.theme_color)
         self.runtimes_label.grid(row=9, column=0, sticky='w', padx=5, pady=10)
-        self.runtimes_entry = tk.Entry(frame_left, textvariable=self.runtimes_var, width=len(self.runtimes_var.get())+5)
+        self.runtimes_entry = tk.Entry(self.frame_left, textvariable=self.runtimes_var, width=len(self.runtimes_var.get())+5, bg=lighten_hex_color(self.theme_color))
         self.runtimes_entry.grid(row=9, column=1, sticky='ew', padx=5, pady=10)
         self.runtimes_entry.bind("<FocusIn>", self.on_runtimes_focus_in)  
         self.runtimes_entry.bind("<FocusOut>", self.on_runtimes_focus_out)
@@ -339,31 +379,34 @@ class App:
         self.entries_vars_default_value.append(self.default_time)
         self.default_font = font.Font(self.runtimes_label, self.runtimes_label.cget("font"))
         self.default_font.config(underline=1)
-        self.estimated_time_label = tk.Label(frame_left, text="预估一次时间: ")
+        self.estimated_time_label = tk.Label(self.frame_left, text="预估一次时间: ", bg=self.theme_color)
         self.estimated_time_label.config(font=self.default_font)
         self.estimated_time_label.grid(row=10, column=0, sticky='w', padx=5, pady=10)
         image_path = get_path("assets/Estimated_time.png")
         self.original_image = Image.open(image_path)
-        self.hover_window = None
-        self.estimated_time_label.bind("<Enter>", self.label_on_enter)
-        self.estimated_time_label.bind("<Leave>", self.label_on_leave)
-        #self.estimated_time_label.bind("<Button-1>", self.label_on_click)
-        self.estimated_time_entry = tk.Entry(frame_left, textvariable=self.estimated_time_var, width=len(self.estimated_time_var.get())+5)
+        self.estimated_label_hover_window = None
+        self.estimated_label_is_clicked = False
+        self.estimated_time_label.bind("<Enter>", self.estimated_label_on_enter)
+        self.estimated_time_label.bind("<Leave>", self.estimated_label_on_leave)
+        self.estimated_time_label.bind("<Button-1>", self.estimated_label_on_click)
+        self.estimated_time_entry = tk.Entry(self.frame_left, textvariable=self.estimated_time_var, width=len(self.estimated_time_var.get())+5, bg=lighten_hex_color(self.theme_color))
         self.estimated_time_entry.grid(row=10, column=1, sticky='ew', padx=5, pady=10)
         #self.test_item_var.trace_add("write", self.update_estimated_time_entry)
         self.estimated_time_entry.bind("<FocusIn>", self.on_estimated_time_focus_in)  
         self.estimated_time_entry.bind("<FocusOut>", self.on_estimated_time_focus_out)
         self.estimated_time_entry.bind("<Return>", self.handle_enter)
         
+        self.all_radio_buttons = self.browser_radio_buttons + self.test_item_radio_buttons
+        self.labels = [self.browser_type_label, self.driver_path_label, self.test_item_label, self.username_label, self.password_label, self.runtimes_label, self.estimated_time_label]
         self.entries = [self.username_entry, self.password_entry, self.runtimes_entry, self.estimated_time_entry]
         self.entries_var = [self.username_var, self.password_var, self.runtimes_var, self.estimated_time_var]
         
-        self.button_confirm = HoverButton(frame_left, text="confirm", color = "lightgray", command=self.handle_confirm_button)
+        self.button_confirm = HoverButton(self.frame_left, text="confirm", color=self.theme_color, command=self.handle_confirm_button, cursor="hand2")
         self.button_confirm.grid(row=11, column=1, sticky='w', padx=20, pady=20)
-        self.button_cancel = HoverButton(frame_left, text="cancel", color = "lightgray", command=self.handle_cancel_button)
+        self.button_cancel = HoverButton(self.frame_left, text="cancel", color=self.theme_color, command=self.handle_cancel_button, cursor="hand2")
         self.button_cancel.grid(row=11, column=1, sticky='e', padx=300, pady=20)
 
-        self.text_area = ScrolledText(frame_right, wrap=tk.WORD, state=tk.DISABLED, bg='lightgray', fg='black', font=("Courier", 10))
+        self.text_area = ScrolledText(self.frame_right, wrap=tk.WORD, state=tk.DISABLED, bg=lighten_hex_color(self.theme_color), fg='black', font=("Courier", 10))
         self.text_area.grid(sticky='nsew', padx=10, pady=10)
         self.text_area.tag_configure("GREEN", foreground="green")
         self.text_area.tag_configure("RED", foreground="red")
@@ -376,19 +419,22 @@ class App:
         self.window_closed = False
         self.input_popup = None
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.root.bind('<Escape>', self.on_closing)
         # 主循环和后台线程并行，需要使用threading.Event事件对象机制来同步管理事件状态--在后台线程中实时安全地访问和检查事件的值
-        self.input_ready_event = threading.Event()
+        self.start_prepare_event = threading.Event()
+        self.username_and_password_ready_event = threading.Event()
+        self.runtimes_ready_event = threading.Event()
+        self.estimated_time_ready_event = threading.Event()
+        self.all_input_ready_event = threading.Event()
         # 标志变量，指示驱动是否可用
         self.driver_is_good = False
         # 标志变量，指示驱动是否已完全启动
         self.driver_fully_booted_is_ok = False
+        # 标志变量，通过绑定和移绑key按键功能指示每个entry输入框是否可编辑，直接使用控件参数state="DISABLED"会导致颜色不可设置
+        self._is_key_bound = [False, False, False, False]
 
-    # 准备就绪的状态用线程事件设置
-    def set_input_ready_event(self, value):
-        self.input_ready_event.set() if value else self.input_ready_event.clear()
- 
     # 主程序关闭释放资源和恢复变量值
-    def on_closing(self):
+    def on_closing(self, event=None):
         if messagebox.askokcancel("Quit", "APP is closing...Do you want to quit?"):
             # 正在下载driver的提示变量恢复默认值
             if self.is_installing_driver:
@@ -396,31 +442,192 @@ class App:
             # 将用以替换python的input函数的输入窗口关闭
             if self.input_popup is not None and self.input_popup.winfo_exists():
                 self.input_popup.destroy()
-            sys.stdout.close()
             self.window_closed = True
             self.root.quit()
             self.root.destroy()
 
-    #  所有状态锁定
-    def click_confirm_button_to_setup(self):
-        # 将所有的输入框锁定不可编辑
-        for entry in enumerate(self.entries, start=1):
-            entry[1].config(state='readonly')
-        # 将浏览器类型和测试项锁定
-        all_radio_buttons = self.browser_radio_buttons + self.test_item_radio_buttons
-        for rb in all_radio_buttons:
-            rb.config(state=tk.DISABLED)
-        # 测试项锁定的时候不再可使用tab选择
-        self.test_item_radio_is_enabled = False
+    # 打印有颜色的文本输出到textarea中
+    def print_colored(self, text, tag=None, i=999):
+        # 直接打印文本
+        if i == 999:
+            sys.stdout.write(text, tag)
+            self.save_log_content += text
+            return text
+        # 特定文本（输入框的信息）处理一下再打印
+        else:
+            self.all_entries_information_update()
+            self.user_input_display = self.entries_vars_current_value[i]
+            if i == 0 or i == 4:
+                text = text + str(self.user_input_display) + "\n"
+            elif i == 2:
+                text = text + '*' * len(self.user_input_display) + "\n"
+            else:
+                text = text + self.user_input_display + "\n"
+            self.save_log_content += text
+            sys.stdout.write(text, tag)
+            return self.user_input_display
+
+    # UI菜单
+    def create_menu(self):  
+        # 创建菜单栏  
+        menu_bar = tk.Menu(self.root)  
+        self.root.config(menu=menu_bar)  
+     
+        # 创建文件的下拉菜单对象，tearoff=0表示不自动分离菜单
+        file_menu = tk.Menu(menu_bar, tearoff=0)  
+        # 创建文件相关的菜单项
+        menu_bar.add_cascade(label="File", menu=file_menu)  
+
+        # 文件菜单选项：使用默认驱动
+        file_menu.add_command(label="Use default driver", command=self.use_default_driver)
+        driver_menu = tk.Menu(file_menu, tearoff=0) 
+        # 文件菜单选项：获取新的驱动
+        file_menu.add_cascade(label="Get new driver", menu=driver_menu)
+        # 文件菜单选项：获取新的驱动 -> 打开自己下载的驱动
+        driver_menu.add_command(label="Open", command=self.get_driver_from_folder)
+        # 分割线
+        driver_menu.add_separator()
+        # 文件菜单选项：获取新的驱动 -> 自动下载最新的驱动
+        driver_menu.add_command(label="Install", command=self.start_driver_installation_Prepare)
+        # 文件菜单选项：保存显示的信息
+        file_menu.add_command(label="Save log", command=self.save_log)
+
+        # 创建试图相关菜单项
+        view_menu = tk.Menu(menu_bar, tearoff=0) 
+        menu_bar.add_cascade(label="View", menu=view_menu) 
+        view_menu.add_command(label="Default theme", command=self.restore_theme_color)
+        view_menu.add_command(label="Change theme", command=self.change_theme_color)
         
-    # 所有资源和信息确认按钮，启动测试确认件
-    def handle_confirm_button(self, event):
-        # 提示正在下载驱动，还没有使用自动下载的驱动
-        if self.is_installing_driver:
-            self.show_driver_download_info()
-        # 所有准备已就绪
-        self.set_input_ready_event(True)
-        # 输入框的信息提炼
+        # 创建帮助菜单项
+        help_menu = tk.Menu(menu_bar, tearoff=0)  
+        menu_bar.add_cascade(label="Help", menu=help_menu) 
+        help_menu.add_command(label="Usage introduction", command=self.get_Usage_introduction) 
+        help_menu.add_command(label="About", command=self.get_About)  
+
+    # 保存日志
+    def save_log(self):
+        log_file_path = filedialog.asksaveasfilename(
+            defaultextension=".txt", 
+            filetypes=[("Text files", "*.txt")],
+            initialdir=os.getcwd(),
+            initialfile="Genoa_xGMI_auto_log")
+        if log_file_path:
+            try:
+                with open(log_file_path, 'w', encoding="utf-8") as log_file:
+                    creation_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) 
+                    log_file.write(f"This log file created at: {creation_time}\n\n {self.save_log_content}")
+                    self.print_colored(f"Log file saved successfully to: {log_file_path}\n") 
+                    self.print_colored("\n")
+            except Exception as e:
+                self.print_colored(f"Failed to save log: {e}\n", "RED") 
+                self.print_colored("\n")   
+        else:
+            self.print_colored("Saved cancelled.\n", "YELLOW")  
+            self.print_colored("\n")
+
+    # 主题颜色应用到控件上
+    def configure_all_widget_colors(self):
+        self.root.config(bg=self.theme_color)
+        self.frame_left.config(bg=self.theme_color)
+        self.frame_right.config(bg=self.theme_color)
+        for rb in self.all_radio_buttons:
+            rb.config(bg=self.theme_color)
+        for label in self.labels:
+            label.config(bg=self.theme_color) 
+        self.driver_path_entry.config(bg=lighten_hex_color(self.theme_color))    
+        for entry in enumerate(self.entries, start=1):
+            entry[1].config(bg=lighten_hex_color(self.theme_color))
+        self.text_area.config(bg=lighten_hex_color(self.theme_color))
+        self.button_confirm.config(background=self.theme_color)
+        self.button_cancel.config(background=self.theme_color)
+        self.button_confirm.update_color(self.theme_color)
+        self.button_cancel.update_color(self.theme_color)
+
+    # 恢复默认主题颜色
+    def restore_theme_color(self):
+        self.theme_color = "#F5F5F5"
+        self.configure_all_widget_colors()
+
+    # 改变主题颜色
+    def change_theme_color(self):
+        new_color = colorchooser.askcolor(title="Choose a color", parent=self.root, initialcolor=self.theme_color)
+        if new_color[1]:  # 如果用户选择了颜色
+            self.theme_color = new_color[1]
+            self.configure_all_widget_colors()
+
+    # 关于程序使用方法
+    """
+    （展示包括网线,开ihdt等硬件配置）
+    """
+    def get_Usage_introduction(self):
+        a = 0
+    
+    # 关于程序声明
+    def get_About(self):
+        about_window = tk.Toplevel(self.root)
+        about_window.title("About Application")
+    
+        # 加载并显示图片
+        help_image_path = get_path("assets\Help.png")  # 替换为你的图片路径
+        help_image = Image.open(help_image_path)
+        help_image = help_image.resize((150, 150),Image.LANCZOS)  # 调整图片大小以适应窗口  # 调整图片大小
+        photo = ImageTk.PhotoImage(help_image)
+        label_image = tk.Label(about_window, image=photo)
+        label_image.image = photo  # 保持对图像的引用
+        label_image.grid(row=0, column=0, padx=10, pady=10)    
+
+        # 可点击的链接标签
+        def open_help_url(event=None):
+            webbrowser.open("https://github.com/beggin-noob")
+
+        def enter_help_url(event=None):
+            event.widget.config(fg="blue")
+        
+        def leave_help_url(event=None):
+            event.widget.config(fg="black")
+
+        # 显示说明信息
+        about_info_text = """
+        This program is an automated tool designed to simplify and enhance the process of multiple unlocks required in AMD CPU related testing. It is built on a solid foundation, inspired by the framework and code principles of AMD Gopi software.
+        This application is currently customized for Bytedance's web use, specifically for KVM operation of machines to automatically run test scripts. 
+        By utilizing advanced programming techniques and user-friendly interfaces, it reduces the time and effort required for manual testing, eliminating the need to constantly stare at the machine while ensuring the accuracy and consistency of our test results.
+        
+        If you encounter any problems or have improvement suggestions, please contact me. 
+        You can find my contact information and more detailed information on the project in the GitHub repository:"""
+        label_info1 = tk.Label(about_window, text=about_info_text, wraplength=1000, justify=tk.LEFT)
+        label_info1.grid(row=0, column=1, padx=10, sticky=tk.W+tk.E)
+
+        label_link_url = tk.Label(about_window, text="https://github.com/beggin-noob", cursor="hand2")
+        label_link_url.grid(row=1, column=1, padx=10, sticky=tk.W)
+        label_link_url.bind("<Button-1>", open_help_url)
+        label_link_url.bind("<Enter>", enter_help_url)
+        label_link_url.bind("<Leave>", leave_help_url)
+ 
+        label_info2 = tk.Label(about_window, text="       Thank you for using our application!", wraplength=1000)
+        label_info2.grid(row=2, column=1, padx=10, sticky=tk.W)
+
+    # 所有准备就绪的状态用线程事件设置
+    def set_all_input_ready_event(self, value):
+        self.all_input_ready_event.set() if value else self.all_input_ready_event.clear()
+
+    # 开始准备的状态用线程事件设置
+    def set_start_prepare_event(self, value):
+        self.start_prepare_event.set() if value else self.start_prepare_event.clear()
+
+    # 用户名和密码准备就绪的状态用线程事件设置
+    def set_username_and_password_ready_event(self, value):
+        self.username_and_password_ready_event.set() if value else self.username_and_password_ready_event.clear()
+    
+    # 运行次数准备就绪的状态用线程事件设置
+    def set_runtimes_ready_event(self, value):
+        self.runtimes_ready_event.set() if value else self.runtimes_ready_event.clear()
+    
+    # 预估时间准备就绪的状态用线程事件设置
+    def set_estimated_time_ready_event(self, value):
+        self.estimated_time_ready_event.set() if value else self.estimated_time_ready_event.clear()
+
+    # 输入框的信息提炼
+    def all_entries_information_update(self):
         for i, entry in enumerate(self.entries, start=1):
             if not entry.get():
                 self.entries_vars_current_value[i] = self.entries_vars_current_value[i]
@@ -440,19 +647,48 @@ class App:
                 else:
                     self.entries_vars_current_value[i] = entry.get()
 
+    #  所有状态锁定
+    def click_confirm_button_to_setup(self):
+        # 将所有的输入框锁定不可编辑
+        for entry in enumerate(self.entries, start=1):
+            entry[1].bind('<Key>', lambda event: 'break')
+        self._is_key_bound = [True, True, True, True]
+        # 将浏览器类型和测试项锁定
+        for rb in self.all_radio_buttons:
+            rb.config(state=tk.DISABLED)
+        # 测试项锁定的时候不再可使用tab选择
+        self.test_item_radio_is_enabled = False
+        
+    # 所有资源和信息确认按钮，启动测试确认件
+    def handle_confirm_button(self, event):
+        # 提示正在下载驱动，还没有使用自动下载的驱动
+        if self.is_installing_driver:
+            self.show_driver_download_info()
+        # 准备开始
+        self.set_start_prepare_event(True)
+        self.set_username_and_password_ready_event(True)
+        self.set_runtimes_ready_event(True)
+        self.set_estimated_time_ready_event(True)
+        self.all_entries_information_update()
+
     # 所有状态恢复默认
     def click_cancel_button_to_restore(self):
         # 将所有的输入框恢复可编辑
         for entry in enumerate(self.entries, start=1):
-            entry[1].config(state='normal')
+            entry[1].unbind('<Key>')
+        self._is_key_bound = [False, False, False, False]
         # 浏览器类型和测试项可重新选择
-        all_radio_buttons = self.browser_radio_buttons + self.test_item_radio_buttons
-        for rb in all_radio_buttons:
+        for rb in self.all_radio_buttons:
             rb.config(state=tk.NORMAL)
         # 测试项可使用tab选择的变量
         self.test_item_radio_is_enabled = True
+        # 未准备开始
+        self.set_start_prepare_event(False)
         # 所有准备未就绪
-        self.set_input_ready_event(False)
+        self.set_username_and_password_ready_event(False)
+        self.set_runtimes_ready_event(False)
+        self.set_estimated_time_ready_event(False)
+        self.set_all_input_ready_event(False)
         # 驱动是否可用的状态标志恢复默认
         self.driver_is_good = False
         # 驱动是否完全启动的状态标志恢复默认
@@ -460,11 +696,14 @@ class App:
         
     # 所有资源和信息取消按钮，取消测试确认键
     def handle_cancel_button(self, event):
-        if self.input_ready_event.is_set() and self.driver_is_good:
+        if self.start_prepare_event.is_set() and not self.all_input_ready_event.is_set():
+            self.print_colored("Re enter information\n")
+            self.click_cancel_button_to_restore() 
+        if self.all_input_ready_event.is_set() and self.driver_is_good:
             if self.driver_fully_booted_is_ok:
                 if messagebox.askokcancel("Note", f"Cancelling will close the currently running web.\n (If you have closed the browser yourself, you can ignore this message.)\n Are you sure you want to cancel?"):
-                    self.print_colored("The previous driver has been closed, Please click confirm to retest\n", "YELLOW")
-                    print("")
+                    self.print_colored("\nThe previous driver has been closed, Please click confirm to retest\n", "YELLOW")
+                    self.print_colored("\n")
                     self.click_cancel_button_to_restore()
             else:
                 messagebox.showinfo("Driver Info - Startup Status(ongoing)", f"The browser is starting up. Please try again later. \n"
@@ -481,49 +720,10 @@ class App:
         else:
             self.button_confirm.focus_set()
 
-    # 打印有颜色的文本输出到text当中，若是指定将输入框的信息打印，则打印对应需要的文本
-    def print_colored(self, text, tag=None, i=999):
-        while not self.input_ready_event.is_set():
-            if self.window_closed:
-                sys.exit()
-            self.root.update()
-        text = text
-        if i == 999:
-            sys.stdout.write(text, tag)
-            return text
-        else:
-            self.user_input_display = self.entries_vars_current_value[i]
-            if i == 0 or i == 4:
-                text = text + str(self.user_input_display) + "\n"
-            elif i == 2:
-                text = text + '*' * len(self.user_input_display) + "\n"
-            else:
-                text = text + self.user_input_display + "\n"
-            sys.stdout.write(text, tag)
-            return self.user_input_display
-
-    # UI菜单
-    def create_menu(self):  
-        # 创建菜单栏  
-        menu_bar = tk.Menu(self.root)  
-        self.root.config(menu=menu_bar)  
-     
-        # 创建文件菜单项  
-        file_menu = tk.Menu(menu_bar, tearoff=0)  
-        menu_bar.add_cascade(label="File", menu=file_menu)  
-
-        driver_menu = tk.Menu(file_menu, tearoff=0) 
-        file_menu.add_command(label="Use default driver", command=self.use_default_driver)
-        file_menu.add_cascade(label="Get new driver", menu=driver_menu)
-        # 添加获取驱动的选项  
-        driver_menu.add_command(label="Open", command=self.get_driver_from_folder)
-        driver_menu.add_separator()
-        driver_menu.add_command(label="Install", command=self.start_driver_installation_Prepare) 
-
     # 可以在菜单中选择使用默认的驱动
     def use_default_driver(self):
-        if self.input_ready_event.is_set():
-            print("您已锁定测试选项,请先单击“cancel”,然后选择")
+        if self.all_input_ready_event.is_set():
+            self.print_colored("您已锁定测试选项,请先单击“cancel”,然后选择\n")
             return
         if self.is_installing_driver:
             self.show_driver_download_info()
@@ -532,17 +732,17 @@ class App:
 
     # 可以在菜单中选择使用用户自己已经安装的驱动
     def get_driver_from_folder(self): 
-        if self.input_ready_event.is_set():
-            print("您已锁定测试选项,请先单击“cancel”,然后选择")
+        if self.all_input_ready_event.is_set():
+            self.print_colored("您已锁定测试选项,请先单击“cancel”,然后选择\n")
             return
         if self.is_installing_driver:
             self.show_driver_download_info()
         else:
             # 打开已经下载好的Edge驱动  
-            file_path = filedialog.askopenfilename(filetypes=[("Executable files", "*.exe")])  
-            if file_path:  
-                self.driver_path_var.set(file_path)
-                if "chrome" in file_path.split("\\")[-1].lower():
+            driver_file_path = filedialog.askopenfilename(filetypes=[("Executable files", "*.exe")])  
+            if driver_file_path:  
+                self.driver_path_var.set(driver_file_path)
+                if "chrome" in driver_file_path.split("\\")[-1].lower():
                     self.browser_type_var.set(2) 
                 else:
                     self.browser_type_var.set(1)
@@ -551,8 +751,8 @@ class App:
 
     # 可以在菜单中选择下载驱动，则准备开始下载前的工作
     def start_driver_installation_Prepare(self):
-        if self.input_ready_event.is_set():
-            print("您已锁定测试选项,请先单击“cancel”,然后选择")
+        if self.all_input_ready_event.is_set():
+            self.print_colored("您已锁定测试选项,请先单击“cancel”,然后选择\n")
             return
         # 如果正在下载的线程没有结束，则提示正在下载，不重复执行下载任务
         if self.is_installing_driver:
@@ -565,11 +765,11 @@ class App:
             rb.config(state=tk.DISABLED)
         # 在主线程中请求用户是否指定驱动版本
         self.driver_version = simpledialog.askstring("Driver Version", "指定一个版本或者直接点击按钮下载最新版本:")
-        self.root.after(0, self.start_driver_installation_threading)
+        self.start_driver_installation_threading()
 
     # 开启下载driver子线程任务
     def start_driver_installation_threading(self):
-        # 创建一个守护线程来安装驱动
+        # 创建一个守护线程来安装驱动(# 本文件中的第三个子线程 yww_thread_3（仅供记录，避免可能的线程问题）)
         thread = threading.Thread(target=self.get_driver_automatically, daemon=True)
         thread.start()
 
@@ -615,16 +815,15 @@ class App:
     def show_error_message(self, error_message):
         if self.driver_info_dialog is not None:
             self.driver_info_dialog_close()
-        import webbrowser
         error_window = tk.Toplevel(self.root)
         error_window.title("Driver Info - Installation Status(Error)")
         
         first_frame_error_prompt = tk.Frame(error_window)
         first_frame_error_prompt.pack(pady=10)
         if self.driver_version:
-            error_text = "Failed to install driver(网络错误或驱动版本格式不对,请检查重试或自行下载后执行File->Get new driver->open):"
+            error_text = "Failed to install driver(网络错误或驱动版本格式不对,请检查重试或自行下载后执行File->Get new driver->Open):"
         else:
-            error_text = "Failed to install driver(网络错误或权限不足,请检查重试或自行下载后执行File->Get new driver->open):"
+            error_text = "Failed to install driver(网络错误或权限不足,请检查重试或自行下载后执行File->Get new driver->Open):"
         error_info_label = tk.Label(first_frame_error_prompt, text=error_text, font=font.Font(weight='bold'))
         error_info_label.pack(side="top", padx=5)
         #error_info = tk.Label(first_frame_error_prompt, text=error_message, fg="red")
@@ -688,7 +887,7 @@ class App:
             image_label.image = edgedriver_photo  # 保持对图片的引用，防止被垃圾回收
             image_label.pack()
         except Exception as img_error:
-            print(f"Failed to load image: {img_error}")
+            self.print_colored(f"Failed to load image: {img_error}\n")
     
     # 展示正在下载驱动的提示
     def show_driver_download_info(self):
@@ -775,7 +974,7 @@ class App:
 
     def on_username_focus_in(self, event):  
         if self.username_var.get() and self.username_var.get()=='Please enter your NTID username':
-            if not event.widget.cget("state") == "readonly":
+            if not self._is_key_bound[0]:
                 self.username_var.set("")
       
     def on_username_focus_out(self, event):  
@@ -790,7 +989,7 @@ class App:
         if self.username_var.get() and not self.username_var.get()=='Please enter your NTID username':
             if self.password_var.get():
                 self.password_entry.config(fg="black", show="*")
-                if not event.widget.cget("state") == "readonly":
+                if not self._is_key_bound[1] and self.password_var.get()=='Password':
                     self.password_var.set("")
         else:
             self.password_entry.config(fg="red", show="")
@@ -812,7 +1011,7 @@ class App:
 
     def on_runtimes_focus_in(self, event):
         if self.runtimes_var.get() and self.runtimes_var.get()=='Please enter the number to loop through':
-            if not event.widget.cget("state") == "readonly":
+            if not self._is_key_bound[2]:
                 self.runtimes_var.set("")
       
     def on_runtimes_focus_out(self, event):  
@@ -831,7 +1030,7 @@ class App:
 
     def on_estimated_time_focus_in(self, event):  
         if self.estimated_time_var.get() and "Default one estimated time for test" in self.estimated_time_var.get():
-            if not event.widget.cget("state") == "readonly":
+            if not self._is_key_bound[3]:
                 self.estimated_time_var.set("")
                 self.entries_vars_current_value[4] = self.default_time
       
@@ -841,30 +1040,33 @@ class App:
             self.estimated_time_var.set(f"Default one estimated time for test {self.test_items[self.test_item_var.get()]} is {self.default_time}s")
             self.entries_vars_current_value[4] = self.default_time
 
-    def label_on_enter(self, event):
-        if self.hover_window is None:
-            self.hover_window = tk.Toplevel(self.root)
-            self.hover_window.transient(self.root)
-            self.hover_window.attributes("-topmost", True)
-            self.hover_window.overrideredirect(True)
-            self.hover_window.geometry(f"+{self.root.winfo_pointerx()}+{self.root.winfo_pointery()}")
-            self.hover_window.lift()
+    def estimated_label_on_enter(self, event):
+        self.default_font.config(weight="bold")
+        self.estimated_time_label.config(fg="blue", cursor="hand2")  
+        if self.estimated_label_hover_window is None:
+            self.estimated_label_hover_window = tk.Toplevel(self.root)
+            self.estimated_label_hover_window.transient(self.root)
+            self.estimated_label_hover_window.attributes("-topmost", True)
+            self.estimated_label_hover_window.overrideredirect(True)
+            self.estimated_label_hover_window.geometry(f"+{self.root.winfo_pointerx()}+{self.root.winfo_pointery()}")
+            self.estimated_label_hover_window.lift()
 
             width, height = self.root.winfo_width(), self.root.winfo_height()
             resized_image = self.original_image.resize((int(width * 0.5), int(height * 0.8)), Image.LANCZOS)
             self.photo = ImageTk.PhotoImage(resized_image)
-            self.image_label = tk.Label(self.hover_window, image=self.photo)
-            self.image_label.grid()
-        self.default_font.config(weight="bold")
-        self.estimated_time_label.config(fg="blue", cursor="hand2")        
+            self.image_label = tk.Label(self.estimated_label_hover_window, image=self.photo)
+            self.image_label.grid() 
 
-    def label_on_leave(self, event):
-        if self.hover_window is not None:
-            self.hover_window.destroy()
-            self.hover_window = None
+    def estimated_label_on_leave(self, event):
         self.default_font.config(weight="normal")
         self.estimated_time_label.config(fg="black")
+        if not self.estimated_label_is_clicked and self.estimated_label_hover_window is not None:
+            self.estimated_label_hover_window.destroy()
+            self.estimated_label_hover_window = None  
 
+    def estimated_label_on_click(self, event):
+        self.estimated_label_is_clicked = not self.estimated_label_is_clicked
+        
     def get_user_input(self, prompt):
         self.input_popup = tk.Toplevel(self.root)
         self.input_popup.title("Input Required")
@@ -919,17 +1121,11 @@ class App:
         self.input_popup.wait_window()
         return user_input.get()
 
-class MyError(Exception):       
-    pass
-class ACPW_Exception(MyError):
-    pass
-class loop_Exception(MyError):
-    pass
-class Estimated_Exception(MyError):
-    pass
-
 #执行后台任务，并通过队列与主线程通信,用于处理UI界面,并启动web自动测试
 def load_auto_modules(app):
+    app.print_colored("欢迎使用Genoa xGMI_auto tool \n", "BOLD")
+    app.print_colored("\n")
+
     asd = globals()
     import pysy
     asd.update(locals())
@@ -960,15 +1156,9 @@ def load_auto_modules(app):
 
         while True:
             # 检查Event对象的内部标志是否被设置为True
-            if not app.input_ready_event.is_set():
-                # 如果有正在运行的 driver 且 input_ready_event 为 False，则关闭所有打开的浏览器
-                if driver is not None:
-                    driver.quit()
-                    driver = None  # 重置 driver 引用
-                # 等待input_ready_event变为True
-                app.input_ready_event.wait()
+            if app.all_input_ready_event.is_set():
                 try:
-                    app.root.after(0, lambda: print("The browser is opening, please wait a few seconds..."))
+                    app.print_colored("The browser is opening, please wait a few seconds...\n")
                     if app.browser_type_var.get() == 1:
                         # 指定浏览器驱动路径，对于特定版本selenium可能内置驱动或者浏览器版本提供内置的自动化支持就不需要驱动
                         driver_path = EdgeService(app.get_clean_driver_path())
@@ -981,152 +1171,141 @@ def load_auto_modules(app):
                         driver = webdriver.Chrome(service=driver_path, options=options)  
 
                     wait = WebDriverWait(driver, 40)
-                    app.root.after(0, lambda: print("Successfully initialize of WebDriver"))
+                    app.print_colored("Successfully initialize of WebDriver\n")
                     app.driver_fully_booted_is_ok = True
                     return (driver,wait)
                 except Exception as e:
                     # 主线程中打印详细的错误信息
-                    app.root.after(0, lambda: app.print_colored(f"Error: {e}\n", "RED"))
-                    app.root.after(0, lambda: app.print_colored("Browser driver was not started due to an error or missing file.\n", "RED"))
-                    app.root.after(0, lambda: print(""))
+                    app.print_colored(f"Error: {e}\n", "RED")
+                    app.print_colored("Browser driver was not started due to an error or missing file.\n", "RED")
+                    app.print_colored("\n")
                     app.click_cancel_button_to_restore()
     
     def input_demand(app):
-        app.print_colored(f"欢迎使用Genoa xGMI_auto tool \n", "BOLD")
+        # 打印测试项
+        for key,value in app.test_items.items():
+            app.print_colored(f"{key}: {value};\n")
+        # 获取测试项
+        item = app.print_colored("Test item to be run: ", i=0)
+        app.print_colored(f"You will run {app.test_items[item]} \n", "GREEN")
+        # 测试项无问题，指定为不可编辑,不可tab选择
+        for rb in app.test_item_radio_buttons:
+            rb.config(state=tk.DISABLED)
+        app.test_item_radio_is_enabled = True
 
+        # 获取用户名和密码
+        sdu_username = app.print_colored("AMD AC - NTID username: ", i=1)
+        sdu_password = app.print_colored(f"AMD PW - Password for user {sdu_username}: ", i=2)
+        # 账户密码处理
         while True:
-            app.print_colored(f"\n")
-            try:
-                for key,value in app.test_items.items():
-                    #if key == 5:
-                        #app.print_colored(f"{key}: {value};\n")
-                    #else:
-                        #app.print_colored(f"{key}: {value};  ")
-                    app.print_colored(f"{key}: {value};\n")
-                item = app.print_colored("Test item to be run: ", i=0)
-                app.print_colored(f"You will run {app.test_items[item]} \n", "GREEN")
-                app.input_ready_event(True)
-
-                sdu_username = app.print_colored(f"AMD AC - NTID username: ", i=1)
-                sdu_password = app.print_colored(f"AMD PW - Password for user {sdu_username}: ", i=2)
-                app.print_colored(f"请稍等，正在校验账户密码...\n")
-                try:
-                    unlock(sdu_username,sdu_password)
-                    result = is_locked()
-                    app.print_colored(f"The account && password is correct \n", "GREEN")
-                    app.input_ready_event(True)
-                except:
-                    raise ACPW_Exception
-                
-                try:
-                    num_times_input = app.print_colored("Number to loop through: ", i=3)
-                    num_times = ""
-                    for char in num_times_input:
-                        if char.isdigit():
-                            num_times += char
-                    num_times = int(num_times)
-                    app.print_colored(f"You will run {num_times} times \n", "GREEN")
-                    app.input_ready_event(True)
-                except:
-                    raise loop_Exception
-
-                try:
-                    one_time = app.print_colored(f"Approximately run one time(s): ", i=4)
-                    if item == 1 and one_time < 3800:
-                        app.print_colored(f"--Estimated time is not enough, at least 3800s for GSA Stress \n", "RED")
-                        for rb in app.test_item_radio_buttons:
-                            rb.config(state=tk.NORMAL)
-                            app.test_item_radio_is_enabled = True
-                        for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
-                            entry.config(state='normal') 
-                        app.input_ready_event(False)
-                    elif item == 2 and one_time < 1500:
-                        app.print_colored(f"--Estimated time is not enough, at least 1500s for 4-Point Parallel^2 Test \n", "RED")
-                        for rb in app.test_item_radio_buttons:
-                            rb.config(state=tk.NORMAL)
-                            app.test_item_radio_is_enabled = True
-                        for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
-                            entry.config(state='normal')
-                        app.input_ready_event(False)
-                    elif item == 3 and one_time < 2300:
-                        app.print_colored(f"--Estimated time is not enough, at least 2300s for 4-Point Test \n", "RED")
-                        for rb in app.test_item_radio_buttons:
-                            rb.config(state=tk.NORMAL)
-                            app.test_item_radio_is_enabled = True
-                        for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
-                            entry.config(state='normal')
-                        app.input_ready_event(False)
-                    elif item == 4 and one_time < 2800:
-                        app.print_colored(f"--Estimated time is not enough, at least 2800s for Margin Search(BER9) \n", "RED")
-                        for rb in app.test_item_radio_buttons:
-                            rb.config(state=tk.NORMAL)
-                            app.test_item_radio_is_enabled = True
-                        for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
-                            entry.config(state='normal')
-                        app.input_ready_event(False)
-                    elif item == 5 and one_time < 4300:
-                        app.print_colored(f"--Estimated time is not enough, at least 4300s for Margin Search(BER10) \n", "RED")
-                        for rb in app.test_item_radio_buttons:
-                            rb.config(state=tk.NORMAL)
-                            app.test_item_radio_is_enabled = True
-                        for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
-                            entry.config(state='normal')
-                        app.input_ready_event(False)
-                    else:
-                        app.print_colored(f"Your estimated time for test is {one_time}s.\n", "GREEN")
-                        app.input_ready_event(True)
-                        return sdu_username, sdu_password, num_times, result, one_time, item
+            if app.start_prepare_event.is_set():
+                if app.username_and_password_ready_event.is_set():
+                    try:
+                        unlock(sdu_username,sdu_password)
+                        result = is_locked()
+                        app.print_colored("The account & password is correct \n", "GREEN")
+                        # 账户密码无问题，指定为不可编辑
+                        readonly_indices = [1, 2]  
+                        for index, entry in enumerate(app.entries, start=1):
+                            if index in readonly_indices:
+                                entry.bind('<Key>', lambda event: 'break')
                         break
-                except:
-                    raise Estimated_Exception
-                
-            except ACPW_Exception as e:
-                app.print_colored(f"{e}-- 账号密码错误或者网络已断开，检查后重试\n", "RED")
-                for rb in app.test_item_radio_buttons:
-                    rb.config(state=tk.NORMAL)
-                    app.test_item_radio_is_enabled = True
-                for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
-                    entry.config(state='normal')
-                app.input_ready_event(False)
-            except loop_Exception as e:
-                app.print_colored(f"{e}-- loop_number invalid, please input a number again \n", "RED")
-                for rb in app.test_item_radio_buttons:
-                    rb.config(state=tk.NORMAL)
-                    app.test_item_radio_is_enabled = True
-                for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
-                    entry.config(state='normal')
-                app.input_ready_event(False)
-            except Estimated_Exception as e:
-                app.print_colored(f"{e}-- Estimated time is not enough, please input again \n", "RED")
-                for rb in app.test_item_radio_buttons:
-                    rb.config(state=tk.NORMAL)
-                    app.test_item_radio_is_enabled = True
-                for entry in [app.username_entry, app.password_entry, app.runtimes_entry, app.estimated_time_entry]:
-                    entry.config(state='normal')
-                app.input_ready_event(False)
-    
+                    except Exception as e:
+                        app.print_colored(f"{e} -- 账号密码错误或者网络已断开，检查后重试 \n", "RED")
+                        app.print_colored("\n")
+                        app.set_username_and_password_ready_event(False)
+            else:
+                break
+
+        # 测试次数处理
+        while True:  
+            if app.start_prepare_event.is_set():    
+                if app.runtimes_ready_event.is_set():
+                    try:
+                        num_times_input = app.print_colored("Number to loop through: ", i=3)
+                        num_times = int(''.join(char for char in num_times_input if char.isdigit()))
+                        app.print_colored(f"You will run {num_times} times \n", "GREEN")
+                        # 测试次数无问题，指定为不可编辑
+                        app.runtimes_entry.bind('<Key>', lambda event: 'break')
+                        break
+                    except Exception as e:
+                        app.print_colored(f"{e} -- loop_number invalid, please input a number again \n", "RED")
+                        app.print_colored("\n")
+                        app.set_runtimes_ready_event(False)
+            else:
+                break
+            
+        # 预估时间处理
+        while True:
+            if app.start_prepare_event.is_set():
+                if app.estimated_time_ready_event.is_set():
+                    try:
+                        # 捕获并提示用户预估时间输入的内容
+                        one_time_input = app.print_colored("Approximately run one time(s): ", i=4)
+                        # 检查输入是否是使用了默认时间为数字类型
+                        if isinstance(one_time_input, (int, float)):
+                            # 如果是数字类型，直接使用它
+                            one_time = int(one_time_input) 
+                        else:
+                            # 如果是字符串，即用户输入的时间，则从预估时间输入字符串中提取数字并转为整数
+                            one_time = int(''.join(char for char in one_time_input if char.isdigit()))
+                        # 获取测试项的最小时间要求
+                        test_info = {
+                            1: {"min_time": 3800, "name": "GSA Stress"},
+                            2: {"min_time": 1500, "name": "4-Point Parallel^2 Test"},
+                            3: {"min_time": 2300, "name": "4-Point Test"},
+                            4: {"min_time": 2800, "name": "Margin Search(BER9)"},
+                            5: {"min_time": 4300, "name": "Margin Search(BER10)"}
+                        }
+                        test_data = test_info.get(item)
+                        # 检查是否满足最低测试时间要求
+                        if test_data and one_time < test_data["min_time"]:
+                            app.print_colored(f"Estimated time is not enough, at least {test_data['min_time']}s for the '{test_data['name']}' test.\n", "RED")
+                            app.print_colored("\n")
+                            app.set_estimated_time_ready_event(False)
+                            continue  # 重新输入
+                        # 输出最低测试时间确认信息
+                        app.print_colored(f"Your estimated time for '{test_data['name']}' test is {one_time}s.\n", "GREEN")
+                        app.print_colored("\n")
+                        # 预估时间无问题，指定为不可编辑
+                        app.estimated_time_entry.bind('<Key>', lambda event: 'break')
+                        app.set_all_input_ready_event(True)
+                        # 结束循环
+                        return sdu_username, sdu_password, num_times, result, one_time, item
+                    except ValueError as e:
+                        app.print_colored(f"No valid number found in the Estimated time input, please input a number again.\n", "RED")
+                        app.print_colored("\n")
+                        app.set_estimated_time_ready_event(False)
+            else:
+                break
+
     def time_compute(app, time_num, total_sleep_time): 
-        first_time = True
-        dt_object = datetime.fromtimestamp(time.time())
-        formatted_time = dt_object.strftime('%Y-%m-%d %H:%M:%S') 
-        app.print_colored(f"run start at {formatted_time} \n", "CYAN")
-        start_time = time.time()
-        while time.time() - start_time < total_sleep_time:     
-            elapsed_time = time.time() - start_time
-            time_str = f"{elapsed_time:.2f} seconds"
-            if not first_time:
-                app.print_colored("\r" + f" This time-{time_num+1} already running {time_str} ") 
-            if first_time:  
-                app.print_colored(f" This time-{time_num+1} already running {time_str} ")  
-                first_time = False  
-            time.sleep(1)
-        else:
-            elapsed_time = time.time() - start_time
-            time_str = f"{elapsed_time:.2f} seconds"
-            app.print_colored("\r" + f" This time-{time_num+1} already running for {time_str} \n")
-        dt_object = datetime.fromtimestamp(time.time())
-        formatted_time = dt_object.strftime('%Y-%m-%d %H:%M:%S') 
-        app.print_colored(f"run end at {formatted_time} \n", "CYAN")
+        if app.all_input_ready_event.is_set(): 
+            first_time = True
+            dt_object = datetime.fromtimestamp(time.time())
+            formatted_time = dt_object.strftime('%Y-%m-%d %H:%M:%S') 
+            app.print_colored(f"run start at {formatted_time} \n", "CYAN")
+            start_time = time.time()
+            while time.time() - start_time < total_sleep_time:  
+                if app.all_input_ready_event.is_set():   
+                    elapsed_time = time.time() - start_time
+                    time_str = f"{elapsed_time:.2f} seconds"
+                    if not first_time:
+                        app.print_colored("\r" + f" This time-{time_num+1} already running {time_str} ") 
+                    if first_time:  
+                        app.print_colored(f" This time-{time_num+1} already running {time_str} ")  
+                        first_time = False  
+                    time.sleep(1)
+                else:
+                    break
+            else:
+                elapsed_time = time.time() - start_time
+                time_str = f"{elapsed_time:.2f} seconds"
+                app.print_colored("\r" + f" This time-{time_num+1} already running for {time_str} \n")
+            if app.all_input_ready_event.is_set():
+                dt_object = datetime.fromtimestamp(time.time())
+                formatted_time = dt_object.strftime('%Y-%m-%d %H:%M:%S') 
+                app.print_colored(f"run end at {formatted_time} \n", "CYAN")
         
     def go_to_ip(app):
         driver.get(f'https://{ipaddress}')
@@ -1569,35 +1748,48 @@ def load_auto_modules(app):
         '''   
         return len(loc[0]) > 0  
 
-    sdu_username, sdu_password, num_times, result, one_time, item = input_demand(app)
-    driver, wait = browser_driver_setup(app)
-    go_to_ip(app)
-    initial_window_handle = operate_browser(app)
+    driver =None
+    while True:
+        if not app.start_prepare_event.is_set():
+            # 如果有正在运行的 driver且start_prepare_event为False，则关闭所有打开的浏览器
+            if driver is not None:
+                driver.quit()
+                driver = None  # 重置 driver 引用
+            app.start_prepare_event.wait()
+            app.print_colored("Start checking input information, then prepare for testing\n")
+            app.print_colored("\n")
+            sdu_username, sdu_password, num_times, result, one_time, item = input_demand(app)
+            driver, wait = browser_driver_setup(app)
+            go_to_ip(app)
+            initial_window_handle = operate_browser(app)
 
-    results = []
-    for i in range(num_times):
-        if i == 0:
-            app.print_colored(f"unlock success \n")
-            app.print_colored(f'time {i+1} is_locked status is {result} \n')
-        else:
-            app.print_colored(f"请稍等，正在检查解锁状态...\n")
-            result = is_locked()
-            app.print_colored(f'time {i+1} is_locked status is {result} \n')
-        if result:
-            app.print_colored(f"请稍等，正在解锁...\n")
-            unlock(sdu_username,sdu_password)
-            app.print_colored(f"unlock success \n")
-            app.print_colored(f"请稍等，正在检查解锁状态...\n")
-            result = is_locked()
-            app.print_colored(f'time {i+1} is_locked status is {result} \n')
-        results.append(result)
-        run_xgmi(app,initial_window_handle, item)
-        time_compute(app, i, one_time)
-        if i == num_times-1:
-            break
-        ref_Browser(app, initial_window_handle)
-    app.print_colored(f"all {num_times}-times status is \n   {results} \n")
-    console.interact(banner="Welcome to AMD Go-Pi NDA")
+            results = [True] * num_times
+            for i in range(num_times):
+                if app.all_input_ready_event.is_set():
+                    if i == 0:
+                        app.print_colored(f"unlock success \n")
+                        app.print_colored(f'time {i+1} is_locked status is {result} \n')
+                    else:
+                        app.print_colored(f"请稍等，正在检查解锁状态...\n")
+                        result = is_locked()
+                        app.print_colored(f'time {i+1} is_locked status is {result} \n')
+                    if result:
+                        app.print_colored(f"请稍等，正在解锁...\n")
+                        unlock(sdu_username,sdu_password)
+                        app.print_colored(f"unlock success \n")
+                        app.print_colored(f"请稍等，正在检查解锁状态...\n")
+                        result = is_locked()
+                        app.print_colored(f'time {i+1} is_locked status is {result} \n')
+                    results[i] = result
+                    run_xgmi(app,initial_window_handle, item)
+                    time_compute(app, i, one_time)
+                    if i == num_times-1:
+                        break
+                    ref_Browser(app, initial_window_handle)
+                else:
+                    break
+            app.print_colored(f"all {num_times}-times status is \n   {results} \n")
+            console.interact(banner="Welcome to AMD Go-Pi NDA")
 
 def main():
     root = tk.Tk()
@@ -1607,18 +1799,19 @@ def main():
     builtins = globals()['__builtins__']
     builtins.input = app.get_user_input  
 
-    #threading.Thread(target=load_auto_modules, args=(app,)).start()  # 启动后台线程
-    threading.Thread(target=lalala, args=(app,), daemon=True).start()  # 启动后台线程
+    #threading.Thread(target=load_auto_modules, args=(app,)).start()  # 启动一个守护线程来运行自动模块（本文件中的第一个子线程 yww_thread_1（仅供记录，避免可能的线程问题））
+    threading.Thread(target=lalala, args=(app,), daemon=True).start()  # 启动一个守护线程来运行自动模块（本文件中的第一个子线程 yww_thread_1（仅供记录，避免可能的线程问题））
 
     root.mainloop()
 
 def lalala(app):
-    app.root.after(0, lambda: app.print_colored(f"欢迎使用Genoa xGMI_auto tool \n", "BOLD"))
-    print("")
+    app.print_colored("欢迎使用Genoa xGMI_auto tool \n", "BOLD")
+    app.print_colored("\n")
+
     def input_demand(app):
         # 打印测试项
         for key,value in app.test_items.items():
-            print(f"{key}: {value};")
+            app.print_colored(f"{key}: {value};\n")
         # 获取测试项
         item = app.print_colored("Test item to be run: ", i=0)
         app.print_colored(f"You will run {app.test_items[item]} \n", "GREEN")
@@ -1632,110 +1825,158 @@ def lalala(app):
         sdu_password = app.print_colored(f"AMD PW - Password for user {sdu_username}: ", i=2)
         # 账户密码处理
         while True:
-            try:
-                #print(f"请稍等，正在校验账户密码...")
-                #unlock(sdu_username,sdu_password)
-                #result = is_locked()
-                result = True
-                app.print_colored("The account & password is correct \n", "GREEN")
-                # 账户密码无问题，指定为不可编辑
-                readonly_indices = [1, 2]  
-                for index, entry in enumerate(app.entries, start=1):
-                    if index in readonly_indices:
-                        entry.config(state='readonly')
+            if app.start_prepare_event.is_set():
+                if app.username_and_password_ready_event.is_set():
+                    try:
+                        #print_colored("请稍等，正在校验账户密码...\n")
+                        #unlock(sdu_username,sdu_password)
+                        #result = is_locked()
+                        result = True
+                        app.print_colored("The account & password is correct \n", "GREEN")
+                        # 账户密码无问题，指定为不可编辑
+                        readonly_indices = [1, 2]  
+                        for index, entry in enumerate(app.entries, start=1):
+                            if index in readonly_indices:
+                                entry.bind('<Key>', lambda event: 'break')
+                        break
+                    except Exception as e:
+                        app.print_colored(f"{e} -- 账号密码错误或者网络已断开，检查后重试 \n", "RED")
+                        app.print_colored("\n")
+                        app.set_username_and_password_ready_event(False)
+            else:
                 break
-            except Exception as e:
-                app.print_colored(f"{e} -- 账号密码错误或者网络已断开，检查后重试 \n", "RED")
-                app.set_input_ready_event(False)
 
         # 测试次数处理
-        while True:       
-            try:
-                num_times_input = app.print_colored("Number to loop through: ", i=3)
-                num_times = int(''.join(char for char in num_times_input if char.isdigit()))
-                app.print_colored(f"You will run {num_times} times \n", "GREEN")
-                # 测试次数无问题，指定为不可编辑
-                app.runtimes_entry.config(state='readonly')
+        while True:  
+            if app.start_prepare_event.is_set():    
+                if app.runtimes_ready_event.is_set():
+                    try:
+                        num_times_input = app.print_colored("Number to loop through: ", i=3)
+                        num_times = int(''.join(char for char in num_times_input if char.isdigit()))
+                        app.print_colored(f"You will run {num_times} times \n", "GREEN")
+                        # 测试次数无问题，指定为不可编辑
+                        app.runtimes_entry.bind('<Key>', lambda event: 'break')
+                        break
+                    except Exception as e:
+                        app.print_colored(f"{e} -- loop_number invalid, please input a number again \n", "RED")
+                        app.print_colored("\n")
+                        app.set_runtimes_ready_event(False)
+            else:
                 break
-            except Exception as e:
-                app.print_colored(f"{e} -- loop_number invalid, please input a number again \n", "RED")
-                app.set_input_ready_event(False)
             
         # 预估时间处理
         while True:
-            try:
-                # 捕获并提示用户预估时间输入的内容
-                one_time_input = app.print_colored("Approximately run one time(s): ", i=4)
-                # 检查输入是否是使用了默认时间为数字类型
-                if isinstance(one_time_input, (int, float)):
-                    # 如果是数字类型，直接使用它
-                    one_time = int(one_time_input) 
-                else:
-                    # 如果是字符串，即用户输入的时间，则从预估时间输入字符串中提取数字并转为整数
-                    one_time = int(''.join(char for char in one_time_input if char.isdigit()))
-                # 获取测试项的最小时间要求
-                test_info = {
-                    1: {"min_time": 3800, "name": "GSA Stress"},
-                    2: {"min_time": 1500, "name": "4-Point Parallel^2 Test"},
-                    3: {"min_time": 2300, "name": "4-Point Test"},
-                    4: {"min_time": 2800, "name": "Margin Search(BER9)"},
-                    5: {"min_time": 4300, "name": "Margin Search(BER10)"}
-                }
-                test_data = test_info.get(item)
-                # 检查是否满足最低测试时间要求
-                if test_data and one_time < test_data["min_time"]:
-                    app.print_colored(f"Estimated time is not enough, at least {test_data['min_time']}s for the '{test_data['name']}' test.\n", "RED")
-                    app.set_input_ready_event(False)
-                    continue  # 重新输入
-                # 输出最低测试时间确认信息
-                app.print_colored(f"Your estimated time for '{test_data['name']}' test is {one_time}s.\n", "GREEN")
-                print("")
-                # 预估时间无问题，指定为不可编辑
-                app.estimated_time_entry.config(state='readonly')
-                # 结束循环
-                return sdu_username, sdu_password, num_times, result, one_time, item
-            except ValueError as e:
-                app.print_colored(f"No valid number found in the Estimated time input, please input a number again.\n", "RED")
-                app.set_input_ready_event(False)
+            if app.start_prepare_event.is_set():
+                if app.estimated_time_ready_event.is_set():
+                    try:
+                        # 捕获并提示用户预估时间输入的内容
+                        one_time_input = app.print_colored("Approximately run one time(s): ", i=4)
+                        # 检查输入是否是使用了默认时间为数字类型
+                        if isinstance(one_time_input, (int, float)):
+                            # 如果是数字类型，直接使用它
+                            one_time = int(one_time_input) 
+                        else:
+                            # 如果是字符串，即用户输入的时间，则从预估时间输入字符串中提取数字并转为整数
+                            one_time = int(''.join(char for char in one_time_input if char.isdigit()))
+                        # 获取测试项的最小时间要求
+                        test_info = {
+                            1: {"min_time": 3800, "name": "GSA Stress"},
+                            2: {"min_time": 1500, "name": "4-Point Parallel^2 Test"},
+                            3: {"min_time": 2300, "name": "4-Point Test"},
+                            4: {"min_time": 2800, "name": "Margin Search(BER9)"},
+                            5: {"min_time": 4300, "name": "Margin Search(BER10)"}
+                        }
+                        test_data = test_info.get(item)
+                        # 检查是否满足最低测试时间要求
+                        if test_data and one_time < test_data["min_time"]:
+                            app.print_colored(f"Estimated time is not enough, at least {test_data['min_time']}s for the '{test_data['name']}' test.\n", "RED")
+                            app.print_colored("\n")
+                            app.set_estimated_time_ready_event(False)
+                            continue  # 重新输入
+                        # 输出最低测试时间确认信息
+                        app.print_colored(f"Your estimated time for '{test_data['name']}' test is {one_time}s.\n", "GREEN")
+                        app.print_colored("\n")
+                        # 预估时间无问题，指定为不可编辑
+                        app.estimated_time_entry.bind('<Key>', lambda event: 'break')
+                        app.set_all_input_ready_event(True)
+                        # 结束循环
+                        return sdu_username, sdu_password, num_times, result, one_time, item
+                    except ValueError as e:
+                        app.print_colored(f"No valid number found in the Estimated time input, please input a number again.\n", "RED")
+                        app.print_colored("\n")
+                        app.set_estimated_time_ready_event(False)
+            else:
+                break
 
     def driver_start(app):
-        driver = None
-        while True:
-            # 检查Event对象的内部标志是否被设置为False
-            if not app.input_ready_event.is_set():
-                # 如果有正在运行的 driver 且 input_ready_event 为 False，则关闭所有打开的浏览器
-                if driver is not None:
-                    driver.quit()
-                    driver = None  # 重置 driver 引用
-                app.input_ready_event.wait()
-                try:
-                    app.root.after(0, lambda: print("The browser is opening, please wait a few seconds..."))
-                    # 根据选择的浏览器类型初始化对应的选项和驱动路径
-                    if app.browser_type_var.get() == 1:
-                        options = webdriver.EdgeOptions()
-                        options.add_experimental_option('detach', True)  #不自动关闭浏览器
-                        driver_path = EdgeService(app.get_clean_driver_path())
-                        driver=webdriver.Edge(service=driver_path,options=options)
-                    else:
-                        options = webdriver.ChromeOptions()
-                        options.add_experimental_option('detach', True)  #不自动关闭浏览器
-                        driver_path = ChromeService(app.get_clean_driver_path())
-                        driver=webdriver.Chrome(service=driver_path,options=options)
-                    app.root.after(0, lambda: print("Successfully initialize of WebDriver"))
-                    app.driver_fully_booted_is_ok = True
-                    app.click_confirm_button_to_setup()
-                    driver.get('https://www.baidu.com')
-                except Exception as e:
-                    # 主线程中打印详细的错误信息
-                    app.root.after(0, lambda: app.print_colored(f"Error: {e}\n", "RED"))
-                    app.root.after(0, lambda: app.print_colored("Browser driver was not started due to an error or driver missing/mismatched.\n", "RED"))
-                    app.root.after(0, lambda: print(""))
-                    app.click_cancel_button_to_restore()
-            else:
-                input_demand(app)
-                app.set_input_ready_event(False)
+        # 检查Event对象的内部标志是否被设置为False
+        if app.all_input_ready_event.is_set():
+            try:
+                app.print_colored(f"The {app.request_download_browser} browser driver is initializing, please wait a few seconds...\n")
+                # 根据选择的浏览器类型初始化对应的选项和驱动路径
+                if app.browser_type_var.get() == 1:
+                    options = webdriver.EdgeOptions()
+                    options.add_experimental_option('detach', True)  #不自动关闭浏览器
+                    driver_path = EdgeService(app.get_clean_driver_path())
+                    driver=webdriver.Edge(service=driver_path,options=options)
+                else:
+                    options = webdriver.ChromeOptions()
+                    options.add_experimental_option('detach', True)  #不自动关闭浏览器
+                    driver_path = ChromeService(app.get_clean_driver_path())
+                    driver=webdriver.Chrome(service=driver_path,options=options)
+                app.print_colored("Successfully initialize of WebDriver\n")
+                app.driver_fully_booted_is_ok = True
+                app.click_confirm_button_to_setup()
+                driver.get('https://www.baidu.com')
+                return driver
+            except Exception as e:
+                # 主线程中打印详细的错误信息
+                app.print_colored(f"Error: {e}\n", "RED")
+                app.print_colored("Browser driver was not started due to an error or driver missing/mismatched.\n", "RED")
+                app.print_colored("\n")
+                app.click_cancel_button_to_restore()
 
-    driver_start(app)
+    def time_compute(app, time_num, total_sleep_time): 
+        if app.all_input_ready_event.is_set(): 
+            first_time = True
+            dt_object = datetime.fromtimestamp(time.time())
+            formatted_time = dt_object.strftime('%Y-%m-%d %H:%M:%S') 
+            app.print_colored(f"run start at {formatted_time} \n", "CYAN")
+            start_time = time.time()
+            while time.time() - start_time < total_sleep_time: 
+                if app.all_input_ready_event.is_set():    
+                    elapsed_time = time.time() - start_time
+                    time_str = f"{elapsed_time:.2f} seconds"
+                    if not first_time:
+                        app.print_colored("\r" + f" This time-{time_num+1} already running {time_str} ") 
+                    if first_time:  
+                        app.print_colored(f" This time-{time_num+1} already running {time_str} ")  
+                        first_time = False  
+                    time.sleep(1)
+                else:
+                    break
+            else:
+                elapsed_time = time.time() - start_time
+                time_str = f"{elapsed_time:.2f} seconds"
+                app.print_colored("\r" + f" This time-{time_num+1} already running for {time_str} \n")
+            if app.all_input_ready_event.is_set():
+                dt_object = datetime.fromtimestamp(time.time())
+                formatted_time = dt_object.strftime('%Y-%m-%d %H:%M:%S') 
+                app.print_colored(f"run end at {formatted_time} \n", "CYAN")
+    
+    driver =None
+    while True:
+        if not app.start_prepare_event.is_set():
+            # 如果有正在运行的 driver且start_prepare_event为False，则关闭所有打开的浏览器
+            if driver is not None:
+                driver.quit()
+                driver = None  # 重置 driver 引用
+            app.start_prepare_event.wait()
+            app.print_colored("Start checking input information, then prepare for testing\n")
+            app.print_colored("\n")
+            sdu_username, sdu_password, num_times, result, one_time, item = input_demand(app)
+            driver = driver_start(app)
+            time_compute(app, 0, one_time)
 
 if __name__ == "__main__":  
     main()
