@@ -1,0 +1,5 @@
+问题描述：调用pyreadline时出现AttributeError: module ‘collections’ has no attribute 'Callable’的错误。
+
+错误原因：与pyreadline库与Python 3之间的兼容性有关，Python 3.10及以上版本将一些属性移动到了collections.abc子模块下
+
+修改：报错最后一行的文件
