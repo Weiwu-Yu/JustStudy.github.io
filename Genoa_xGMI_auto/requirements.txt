@@ -1,0 +1,5 @@
+pyreadline
+pillow
+pyautogui
+selenium
+opencv-python
