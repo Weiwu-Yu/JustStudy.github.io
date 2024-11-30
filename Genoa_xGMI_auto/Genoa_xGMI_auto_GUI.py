@@ -442,8 +442,7 @@ class App:
         self.create_menus()
         # 设置窗口图标（使用PNG图片需要PIL库处理）
         # iconphoto方法接受的Image对象必须是PhotoImage类型，方法接受的图像必须是 RGB 模式，并且大小通常应该适合作为窗口图标（例如，32x32 像素）
-        self.toplevel_icon_path = get_path("assets/logo.ico")  # 替换为您的图标文件路径
-        self.toplevel_icon = Image.open(self.toplevel_icon_path)
+        self.toplevel_icon = Image.open(get_path("assets/logo.ico"))
         self.toplevel_icon_photo = ImageTk.PhotoImage(self.toplevel_icon)
         # root相关变量初始化
         self.window_closed = False
@@ -1762,7 +1761,7 @@ def load_auto_modules(app):
     }
     console.runcode(r'exec(open(r"{}").read(), {});import Kysy;import sys;sys.ps1 = "\033[1;33m>>>\033[0m "'.format(path, app_widget))
     app.set_start_prepare_event(False)
-    
+
     def browser_driver_setup(app):
         driver = None
         if app.browser_type_var.get() == 1:
