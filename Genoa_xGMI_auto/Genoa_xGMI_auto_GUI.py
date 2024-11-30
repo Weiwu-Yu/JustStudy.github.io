@@ -440,6 +440,7 @@ class App:
         self.root.bind("<Configure>", self.root_on_configure)
 
         self.create_menus()
+        self.amd_gopi_is_ok = False
         # 设置窗口图标（使用PNG图片需要PIL库处理）
         # iconphoto方法接受的Image对象必须是PhotoImage类型，方法接受的图像必须是 RGB 模式，并且大小通常应该适合作为窗口图标（例如，32x32 像素）
         self.toplevel_icon = Image.open(get_path("assets/logo.ico"))
@@ -1464,6 +1465,9 @@ class App:
         
     # 所有资源和信息确认按钮，启动测试确认件
     def handle_confirm_button(self, event):
+        if not self.amd_gopi_is_ok:
+            messagebox.showwarning("Warning", "Not yet connected to the motherboard, \nplease follow instruction to ensure it is connected to the MLB.\nSuccessful connection will display : 'Welcome To AMD Go-Pi'.")
+            return
         for rb in self.all_radio_buttons:
             rb.config(state=tk.DISABLED)
         # 浏览器项锁定的时候不再可使用tab选择
@@ -1756,10 +1760,11 @@ def load_auto_modules(app):
     r.parse_and_bind('tab: complete')
     console = code.InteractiveConsole(asd)
     path = get_path('launch_Copy.py')
-    app_widget = {
-        "app_textarea_width": app.text_area.winfo_width()
-    }
-    console.runcode(r'exec(open(r"{}").read(), {});import Kysy;import sys;sys.ps1 = "\033[1;33m>>>\033[0m "'.format(path, app_widget))
+    app_textarea_width = app.text_area.winfo_width()
+    asd.update(locals())
+    console.runcode(r'exec(open(r"{}").read());import Kysy;import sys;sys.ps1 = "\033[1;33m>>>\033[0m "'.format(path))
+    app.print_colored(f"已成功连接{ipaddress}, 请继续操作\n", "CYAN")
+    app.amd_gopi_is_ok = True
     app.set_start_prepare_event(False)
 
     def browser_driver_setup(app):
@@ -2443,7 +2448,7 @@ def main():
     # 替换python自带的终端命令行的input函数，用tk的UI组件输入实现同样的效果   
     builtins = globals()['__builtins__']
     builtins.input = app.get_user_input  
-
+    
     #threading.Thread(target=load_auto_modules, args=(app,)).start()  # 启动一个守护线程来运行自动模块
     threading.Thread(target=lalala, args=(app,), daemon=True).start()  # 启动一个守护线程来运行自动模块
 
@@ -2452,6 +2457,19 @@ def main():
 def lalala(app):
     app.print_colored("欢迎使用Genoa xGMI_auto tool \n", "BOLD")
     app.print_colored("\n")
+
+    asd = globals()
+    #asd.update(locals())
+    r.set_completer(rlcompleter.Completer(asd).complete)
+    r.parse_and_bind('tab: complete')
+    console = code.InteractiveConsole(asd)
+    path = get_path('aaaaaaa.py')
+    app_textarea_width = app.text_area.winfo_width()
+    asd.update(locals())
+    console.runcode(r'exec(open(r"{}").read());'.format(path))
+    print(f"已成功连接{ipaddress}\n")
+    app.amd_gopi_is_ok = True
+    app.set_start_prepare_event(False)
     
     def input_demand(app):
         # 打印测试项
