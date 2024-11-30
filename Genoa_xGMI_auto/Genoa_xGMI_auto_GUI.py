@@ -818,9 +818,11 @@ class App:
         if selected_browser == 1:  # Edge
             get_edge_driver_path = get_path("assets/msedgedriver.exe")
             self.driver_path_var.set(f"Edge默认驱动:    {get_edge_driver_path}") 
+            self.request_download_browser = "Edge"
         else: # Chrome
             get_Google_driver_path = get_path("assets/chromedriver.exe")
             self.driver_path_var.set(f"Google默认驱动:  {get_Google_driver_path}")
+            self.request_download_browser = "Chrome"
 
     # 可以在菜单中选择使用用户自己已经安装的驱动
     def get_driver_from_folder(self): 
@@ -836,8 +838,10 @@ class App:
                 self.driver_path_var.set(driver_file_path)
                 if "chrome" in driver_file_path.split("\\")[-1].lower():
                     self.browser_type_var.set(2) 
+                    self.request_download_browser = "Chrome"
                 else:
                     self.browser_type_var.set(1)
+                    self.request_download_browser = "Edge"
                 for rb in self.browser_radio_buttons:
                     rb.config(state=tk.DISABLED)
                 self.browser_radio_is_enabled = False
@@ -1461,6 +1465,10 @@ class App:
         
     # 所有资源和信息确认按钮，启动测试确认件
     def handle_confirm_button(self, event):
+        for rb in self.all_radio_buttons:
+            rb.config(state=tk.DISABLED)
+        # 浏览器项锁定的时候不再可使用tab选择
+        self.browser_radio_is_enabled = False # 这两句其实是在click_confirm_button_to_setup函数里执行了，但是为了防止程序不能及时锁定，在此直接执行
         # 提示正在下载驱动，还没有使用自动下载的驱动
         if self.is_installing_driver:
             self.show_driver_download_info()
@@ -1741,7 +1749,7 @@ class App:
 def load_auto_modules(app):
     app.print_colored("欢迎使用Genoa xGMI_auto tool \n", "BOLD")
     app.print_colored("\n")
-
+    
     asd = globals()
     import pysy
     asd.update(locals())
@@ -1753,6 +1761,7 @@ def load_auto_modules(app):
         "app_textarea_width": app.text_area.winfo_width()
     }
     console.runcode(r'exec(open(r"{}").read(), {});import Kysy;import sys;sys.ps1 = "\033[1;33m>>>\033[0m "'.format(path, app_widget))
+    app.set_start_prepare_event(False)
     
     def browser_driver_setup(app):
         driver = None
@@ -1777,7 +1786,7 @@ def load_auto_modules(app):
             # 检查Event对象的内部标志是否被设置为True
             if app.all_input_ready_event.is_set():
                 try:
-                    app.print_colored("The browser is opening, maybe wait a few seconds...\n")
+                    app.print_colored(f"The {app.request_download_browser} browser driver is initializing, maybe wait a few seconds...\n")
                     if app.browser_type_var.get() == 1:
                         # 指定浏览器驱动路径，对于特定版本selenium可能内置驱动或者浏览器版本提供内置的自动化支持就不需要驱动
                         driver_path = EdgeService(app.get_clean_driver_path())
@@ -1792,6 +1801,7 @@ def load_auto_modules(app):
                     wait = WebDriverWait(driver, 40)
                     app.print_colored("Successfully initialize of WebDriver\n")
                     app.driver_fully_booted_is_ok = True
+                    app.click_confirm_button_to_setup()
                     return (driver,wait)
                 except Exception as e:
                     # 主线程中打印详细的错误信息
@@ -2443,7 +2453,7 @@ def main():
 def lalala(app):
     app.print_colored("欢迎使用Genoa xGMI_auto tool \n", "BOLD")
     app.print_colored("\n")
-
+    
     def input_demand(app):
         # 打印测试项
         for key,value in app.test_items.items():
