@@ -579,14 +579,14 @@ class App:
         self.password_eye_open_image = Image.open(get_path("assets/eye_open.png"))
         self.password_eye_open_image = self.password_eye_open_image.resize(
             (int(self.password_eye_open_image.width * 0.08), 
-             int(self.password_entry.winfo_height() * 15)),
+             int(self.password_eye_open_image.height * 0.05)),
              Image.LANCZOS
         ) # 调整图片大小以适应窗口
         self.password_eye_open_photo = ImageTk.PhotoImage(self.password_eye_open_image)
         self.password_eye_close_image = Image.open(get_path("assets/eye_close.png"))
         self.password_eye_close_image = self.password_eye_close_image.resize(
             (int(self.password_eye_close_image.width * 0.08), 
-             int(self.password_entry.winfo_height() * 15)),
+             int(self.password_eye_close_image.height * 0.05)),
              Image.LANCZOS
         ) # 调整图片大小以适应窗口
         self.password_eye_close_photo = ImageTk.PhotoImage(self.password_eye_close_image)
