@@ -1,0 +1,145 @@
+{
+	// Place your snippets for python here. Each snippet is defined under a snippet name and has a prefix, body and 
+	// description. The prefix is what is used to trigger the snippet and the body will be expanded and inserted. Possible variables are:
+	// $1, $2 for tab stops, $0 for the final cursor position, and ${1:label}, ${2:another} for placeholders. Placeholders with the 
+	// same ids are connected.
+	// Example:
+	// "Print to console": {
+	// 	"prefix": "log",
+	// 	"body": [
+	// 		"console.log('$1');",
+	// 		"$2"
+	// 	],
+	// 	"description": "Log output to console"
+	// }
+
+	// Python 文件头模板
+	"Python Template": {
+		"prefix": "pyheader",
+		"body": [
+			"# -*- coding: utf-8 -*-",
+			"",
+            "# @Time          : $CURRENT_YEAR/$CURRENT_MONTH/$CURRENT_DATE $CURRENT_HOUR:$CURRENT_MINUTE",
+            "# @Author        : Yu.Wei-wu",
+            "# @Telephone     : 18395393599",
+            "# @File          : $TM_FILENAME_BASE.py",
+			"# @singhua Source: https://pypi.tuna.tsinghua.edu.cn/simple",
+			"# @Description   : ${1:description}",
+            "",
+            "$0"
+		],
+		"description": "Add Python file header"
+	},
+
+	// Python main 入口模板
+	"Python Main Template": {
+		"prefix": "pymain",
+		"body": [
+			"if __name__ == \"__main__\":",
+			"    print(\"Hello, Python!\")",
+			"    $0"
+		],
+		"description": "Python main function template"
+	},
+
+	// Python 队列类模板
+    "Python Class Template": {
+        "prefix": "pyclass-guiqueue-to-textarea",
+        "body": [
+			"import tkinter as tk",
+			"from tkinter import filedialog, messagebox, scrolledtext",
+			"import threading",
+			"import queue",
+			"",
+			"# 定义一个队列来在后台线程和UI线程之间传递消息",
+            "class GuiQueueThreadManager:",
+            "    def __init__(self, text_widget):",
+            "        self.text_widget = text_widget",
+			"        self.message_queue = queue.Queue()",
+            "",
+            "    def print_to_text_area(self, message, tag=None):",
+			"        \"\"\"",
+			"        将信息打印到Text控件，并处理颜色",
+			"        可选的颜色标签：RED, GREEN, BLUE, YELLOW",
+			"        可选的字体标签：BOLD",
+			"        \"\"\"",
+			"        self.text_widget.config(state=tk.NORMAL)",
+        	"        start_index = self.text_widget.index(\"end-1c\")",
+        	"        self.text_widget.insert('end', message + \"\\n\")",
+        	"        self.text_widget.see(\"end\")",
+			"        if tag:",
+			"            if tag == \"RED\" or tag == \"BLUE\":",
+			"                self.text_widget.tag_configure(tag, background=tag, foreground=\"white\")",
+            "            if tag == \"GREEN\" or tag == \"YELLOW\":",
+			"                self.text_widget.tag_configure(tag, background=tag, foreground=\"black\")",
+            "            if tag == \"BOLD\":",
+			"                self.text_widget.tag_configure(\"BOLD\", font=(\"Arial\", 12, \"bold\"))  ",
+			"            self.text_widget.tag_add(tag, start_index, \"end-1c\")",
+			"        # 禁用文本编辑模式",
+        	"        self.text_widget.config(state=tk.DISABLED)",
+            "        # 滚动到文本区域的末尾",
+        	"        self.text_widget.yview(tk.END)",
+			"",
+			"    def start_printing(self):",
+			"        \"\"\" 从队列中读取消息并打印到文本区域 \"\"\"",
+			"        while not self.message_queue.empty():",
+			"            message, tag = self.message_queue.get()",
+			"            self.print_to_text_area(message, tag)",
+			"",
+		    "    def add_message(self, message, tag=None):",
+			"        \"\"\" 向队列中添加消息 \"\"\"",
+			"        self.message_queue.put((message,tag))",
+            "",
+			"# ${1:param1}耗时任务操作",
+			"def ${3:param3}(queueManager):",
+			"    queueManager.add_message(\"1111\", \"YELLOW\")",
+			"",
+			"# ${1:param1}耗时任务线程启动",
+			"def start_${3:param3}_thread(queueManager):",
+    		"    \"\"\" 后台线程开始：处理${1:param1} \"\"\"",
+    		"    ${3:param3}_thread = threading.Thread(target=${3:param3}, args=(queueManager,))",
+    		"    ${3:param3}_thread.daemon = True",
+    		"    ${3:param3}_thread.start()",
+			"",
+			"# GUI 应用程序，继承 tk.Tk",
+			"class CustomApp(tk.Tk):",
+			"    def __init__(self):",
+        	"        super().__init__()",
+			"        self.title(\"${1:param1}\")",
+			"",
+			"        # 创建 Text 控件（日志显示区域)",
+			"        self.text_area = scrolledtext.ScrolledText(self, wrap=tk.NONE)",
+			"        self.text_area.pack(padx=10, pady=10, fill=\"both\", expand=True)",
+			"",
+			"        # 添加水平滚动条",
+			"        self.scroll_x = tk.Scrollbar(self, orient=\"horizontal\", command=self.text_area.xview)",
+			"        self.scroll_x.pack(fill=\"x\")",
+			"        self.text_area.config(xscrollcommand=self.scroll_x.set)",
+			"",
+			"        # 队列管理器实例",
+        	"        self.queueManager = GuiQueueThreadManager(self.text_area)",
+			"        # 启动队列管理器循环",
+        	"        self.after(100, self.queue_manager_loop)",
+			"",
+			"        # 耗时任务--${1:param1}按钮",
+			"        self.${2:param2} = tk.Button(self, text=\"${1:param1}\", command=self.on_${2:param2}_click)",
+        	"        self.${2:param2}.pack(pady=10)",
+			"",
+			"    def queue_manager_loop(self):",
+        	"        \"\"\" 定期更新 GUI 以显示日志信息 \"\"\"",
+        	"        self.queueManager.start_printing()",
+            "        self.after(100, self.queue_manager_loop)",
+			"",
+			"    def on_${2:param2}_click(self):",
+			"        \"\"\" 处理${1:param1}按钮点击事件, 开启${1:param1}耗时任务线程 \"\"\"",
+        	"        start_${3:param3}_thread(self.queueManager)",
+			"",
+			"if __name__ == \"__main__\":",
+    		"    app = CustomApp()",
+    		"    app.mainloop()",
+	        "",
+            "$0"
+        ],
+        "description": "Python class template"
+    }
+}
