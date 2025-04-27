@@ -1,0 +1,48 @@
+{
+    // ===== Python 基本设置 =====
+    "python.languageServer": "Pylance",
+    "python.analysis.autoSearchPaths": true,
+    "python.analysis.useLibraryCodeForTypes": true,
+    "python.formatting.provider": "black",
+    "python.linting.enabled": true,
+    "python.linting.flake8Enabled": true,
+
+    // ===== PyQt / PySide 专用 =====
+    "files.associations": {
+        "*.ui": "xml",
+        "*.qrc": "xml",
+        "*.qml": "qml"
+    },
+    "qtForPython.uic.liveExecution.enabled": true,
+    "qtForPython.uic.liveExecution.glob": "**/*.ui",
+    "qtForPython.uic.options": [
+        "-o",
+        "${resourceDirname}${pathSeparator}${resourceBasenameNoExtension}_ui.py"
+    ],
+    "qtForPython.designer.path": "C:/Qt/5.15.2/mingw81_64/bin/designer.exe", // 这里换成你的 designer.exe 路径！
+
+    // ===== 自动保存、自动生成UI文件 =====
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 1000, // 每隔1秒保存
+
+    // ===== 美化体验 =====
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": true
+    },
+    "editor.minimap.enabled": false,
+
+    // ===== 终端优化 =====
+    "terminal.integrated.inheritEnv": true,
+
+    // ===== 快捷运行Python程序 =====
+    "code-runner.executorMap": {
+        "python": "python -u"
+    },
+    "code-runner.runInTerminal": true,
+
+    // ===== 不弹烦人的建议 =====
+    "python.analysis.diagnosticMode": "openFilesOnly"
+}
